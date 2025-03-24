@@ -6,13 +6,12 @@ interface CustomMovementTimesProps {
 }
 
 export default function CustomMovementTimes({ state }: CustomMovementTimesProps) {
-  const {
-    styles,
-    activeStyleIndex,
-    setStyles,
-    customMovementTimes,
-    setCustomMovementTimes
-  } = state;
+  // Use direct references to state properties to avoid hoisting issues
+  const styles = state.styles;
+  const activeStyleIndex = state.activeStyleIndex;
+  const setStyles = state.setStyles;
+  const customMovementTimes = state.customMovementTimes;
+  const setCustomMovementTimes = state.setCustomMovementTimes;
 
   const [fromStep, setFromStep] = useState<number | ''>('');
   const [toStep, setToStep] = useState<number | ''>('');

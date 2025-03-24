@@ -25,7 +25,9 @@ interface VisualizationTabProps {
 }
 
 export default function VisualizationTab({ state }: VisualizationTabProps) {
-  const { results, styles } = state;
+  // Use direct references to state properties to avoid hoisting issues
+  const results = state.results;
+  const styles = state.styles;
 
   // Colors for charts
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];

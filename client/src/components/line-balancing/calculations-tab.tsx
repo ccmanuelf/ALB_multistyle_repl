@@ -6,7 +6,8 @@ interface CalculationsTabProps {
 }
 
 export default function CalculationsTab({ state }: CalculationsTabProps) {
-  const { results } = state;
+  // Use direct reference to state properties to avoid hoisting issues
+  const results = state.results;
 
   // Function to determine impact color class
   const getImpactColorClass = (value: number, isNegative: boolean = false) => {
