@@ -6,14 +6,13 @@ interface HandlingParametersProps {
 }
 
 export default function HandlingParameters({ state }: HandlingParametersProps) {
-  const {
-    handlingOverheadPercentage,
-    setHandlingOverheadPercentage,
-    materialComplexity,
-    setMaterialComplexity,
-    specialHandlingRequirements,
-    setSpecialHandlingRequirements
-  } = state;
+  // Use direct references to state properties to avoid hoisting issues
+  const handlingOverheadPercentage = state.handlingOverheadPercentage;
+  const setHandlingOverheadPercentage = state.setHandlingOverheadPercentage;
+  const materialComplexity = state.materialComplexity;
+  const setMaterialComplexity = state.setMaterialComplexity;
+  const specialHandlingRequirements = state.specialHandlingRequirements;
+  const setSpecialHandlingRequirements = state.setSpecialHandlingRequirements;
 
   const toggleSpecialHandling = (requirement: string) => {
     setSpecialHandlingRequirements(prev => {

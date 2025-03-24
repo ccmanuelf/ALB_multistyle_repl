@@ -12,27 +12,26 @@ interface SetupTabProps {
 }
 
 export default function SetupTab({ state }: SetupTabProps) {
-  const {
-    uploadedFiles,
-    setUploadedFiles,
-    styles,
-    setStyles,
-    activeStyleIndex,
-    setActiveStyleIndex,
-    useSampleData,
-    setUseSampleData,
-    totalHours,
-    setTotalHours,
-    pfdFactor,
-    setPfdFactor,
-    availableOperators,
-    setAvailableOperators,
-    targetWeeklyOutput,
-    setTargetWeeklyOutput,
-    targetMode,
-    setTargetMode,
-    setResults
-  } = state;
+  // Extract state variables explicitly to avoid variable hoisting issues
+  const uploadedFiles = state.uploadedFiles;
+  const setUploadedFiles = state.setUploadedFiles;
+  const styles = state.styles;
+  const setStyles = state.setStyles;
+  const activeStyleIndex = state.activeStyleIndex;
+  const setActiveStyleIndex = state.setActiveStyleIndex;
+  const useSampleData = state.useSampleData;
+  const setUseSampleData = state.setUseSampleData;
+  const totalHours = state.totalHours;
+  const setTotalHours = state.setTotalHours;
+  const pfdFactor = state.pfdFactor;
+  const setPfdFactor = state.setPfdFactor;
+  const availableOperators = state.availableOperators;
+  const setAvailableOperators = state.setAvailableOperators;
+  const targetWeeklyOutput = state.targetWeeklyOutput;
+  const setTargetWeeklyOutput = state.setTargetWeeklyOutput;
+  const targetMode = state.targetMode;
+  const setTargetMode = state.setTargetMode;
+  const setResults = state.setResults;
 
   // Handle removing sample data
   const handleClearSampleData = () => {

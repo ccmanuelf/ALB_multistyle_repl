@@ -7,14 +7,13 @@ interface MovementParametersProps {
 }
 
 export default function MovementParameters({ state }: MovementParametersProps) {
-  const {
-    movementTimePerStep,
-    setMovementTimePerStep,
-    movementDistanceFactor,
-    setMovementDistanceFactor,
-    useCustomMovementTimes,
-    setUseCustomMovementTimes
-  } = state;
+  // Use direct references to state properties to avoid hoisting issues
+  const movementTimePerStep = state.movementTimePerStep;
+  const setMovementTimePerStep = state.setMovementTimePerStep;
+  const movementDistanceFactor = state.movementDistanceFactor;
+  const setMovementDistanceFactor = state.setMovementDistanceFactor;
+  const useCustomMovementTimes = state.useCustomMovementTimes;
+  const setUseCustomMovementTimes = state.setUseCustomMovementTimes;
 
   return (
     <div className="mb-6 bg-neutral-light p-4 rounded-lg">

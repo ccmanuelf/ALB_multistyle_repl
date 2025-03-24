@@ -6,16 +6,15 @@ interface BatchParametersProps {
 }
 
 export default function BatchParameters({ state }: BatchParametersProps) {
-  const {
-    batchSize,
-    setBatchSize,
-    batchSetupTime,
-    setBatchSetupTime,
-    batchTransportTime,
-    setBatchTransportTime,
-    batchProcessingFactor,
-    setBatchProcessingFactor
-  } = state;
+  // Use direct references to state properties to avoid hoisting issues
+  const batchSize = state.batchSize;
+  const setBatchSize = state.setBatchSize;
+  const batchSetupTime = state.batchSetupTime;
+  const setBatchSetupTime = state.setBatchSetupTime;
+  const batchTransportTime = state.batchTransportTime;
+  const setBatchTransportTime = state.setBatchTransportTime;
+  const batchProcessingFactor = state.batchProcessingFactor;
+  const setBatchProcessingFactor = state.setBatchProcessingFactor;
 
   return (
     <div className="mb-6 bg-neutral-light p-4 rounded-lg">
