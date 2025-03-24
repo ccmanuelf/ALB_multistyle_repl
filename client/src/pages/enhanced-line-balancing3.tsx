@@ -2,6 +2,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import Papa from 'papaparse';
 
+// Colors for the operator allocation chart
+const OPERATOR_COLORS = [
+  '#3b82f6', '#f97316', '#10b981', '#6366f1', '#f59e0b', '#14b8a6', 
+  '#8b5cf6', '#ec4899', '#ef4444', '#0ea5e9', '#64748b', '#84cc16',
+  '#d946ef', '#f43f5e', '#0284c7', '#4f46e5', '#be123c', '#166534'
+];
+
 export default function EnhancedLineBalancing3() {
   // State for file upload and data
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
@@ -394,6 +401,51 @@ export default function EnhancedLineBalancing3() {
         value: results.handlingOverheadImpact || 0
       }
     ];
+  };
+  
+  // Calculate operator allocation for a specific style
+  const calculateOperatorAllocation = (style: any, cycleTime: number) => {
+    if (!style || !style.operations) return [];
+    
+    const operatorAllocation = [];
+    let currentOperator = 1;
+    let currentOperatorTime = 0;
+    
+    // Sort operations by step number for proper sequence
+    const sortedOperations = [...style.operations].sort((a, b) => a.step - b.step);
+    
+    // Allocate operations to operators
+    sortedOperations.forEach((operation, index) => {
+      // If adding this operation exceeds the cycle time, move to next operator
+      if (currentOperatorTime + operation.sam > cycleTime && currentOperatorTime > 0) {
+        currentOperator++;
+        currentOperatorTime = 0;
+      }
+      
+      // Assign operation to current operator
+      operatorAllocation.push({
+        step: operation.step,
+        operation: operation.operation,
+        type: operation.type,
+        sam: operation.sam,
+        operatorNumber: currentOperator,
+        startTime: currentOperatorTime,
+        endTime: currentOperatorTime + operation.sam
+      });
+      
+      // Update current operator's time
+      currentOperatorTime += operation.sam;
+    });
+    
+    return operatorAllocation;
+  };
+  
+  // Calculate hourly production
+  const calculateHourlyProduction = (style: any, cycleTime: number) => {
+    if (!cycleTime) return 0;
+    
+    // Units per hour = 60 minutes / cycle time
+    return Math.floor(60 / cycleTime);
   };
   
   // Constants for styling
@@ -954,7 +1006,7 @@ export default function EnhancedLineBalancing3() {
           </div>
           
           {/* Charts */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
             <div className="h-80">
               <h4 className="text-sm font-medium mb-2">Impact Factors</h4>
               <ResponsiveContainer width="100%" height="100%">
@@ -979,7 +1031,7 @@ export default function EnhancedLineBalancing3() {
                       } />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value) => `${parseFloat(value).toFixed(2)} min`} />
+                  <Tooltip formatter={(value: any) => `${parseFloat(value).toFixed(2)} min`} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -1012,6 +1064,146 @@ export default function EnhancedLineBalancing3() {
               </ResponsiveContainer>
             </div>
           </div>
+          
+          {/* Hourly Production Section */}
+          <div className="p-4 border rounded bg-white mb-6">
+            <h3 className="text-lg font-semibold mb-3">Hourly Production</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {results && results.styleResults && results.styleResults.map((style: any, index: number) => (
+                <div key={index} className="bg-gray-50 p-3 rounded">
+                  <h4 className="font-medium mb-2">{style.name}</h4>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span>Cycle Time:</span>
+                    <span className="font-medium">{style.cycleTime.toFixed(2)} min</span>
+                  </div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span>Operators Required:</span>
+                    <span className="font-medium">{style.operatorsRequired}</span>
+                  </div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span>Hourly Output:</span>
+                    <span className="font-medium text-green-600">
+                      {calculateHourlyProduction(style, style.cycleTime)} units/hour
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span>Weekly Output:</span>
+                    <span className="font-medium">{style.allocatedOutput} units/week</span>
+                  </div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span>Daily Output (8hr):</span>
+                    <span className="font-medium">
+                      {Math.round(style.allocatedOutput / (totalHours / 8))} units/day
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          {/* Operator Allocation Section */}
+          {results && results.styleResults && results.styleResults.length > 0 && (
+            <div className="p-4 border rounded bg-white mb-6">
+              <h3 className="text-lg font-semibold mb-3">Operator Allocation</h3>
+              
+              <div className="mb-4">
+                <select 
+                  className="p-2 border rounded w-full md:w-1/3"
+                  value={activeStyleIndex}
+                  onChange={(e) => setActiveStyleIndex(parseInt(e.target.value))}
+                >
+                  {styles.map((style, idx) => (
+                    <option key={idx} value={idx}>{style.name}</option>
+                  ))}
+                </select>
+              </div>
+              
+              {activeStyleIndex !== null && results.styleResults[activeStyleIndex] && (
+                <>
+                  <div className="mb-4 text-sm">
+                    <p className="mb-2">The following chart shows how operations are allocated to each operator.</p>
+                    <div className="flex items-center mb-1">
+                      <span className="font-medium mr-2">Cycle Time:</span>
+                      <span>{results.styleResults[activeStyleIndex].cycleTime.toFixed(2)} minutes</span>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="font-medium mr-2">Total Operators:</span>
+                      <span>{results.styleResults[activeStyleIndex].operatorsRequired}</span>
+                    </div>
+                  </div>
+                
+                  <div className="relative overflow-x-auto">
+                    <div className="min-w-full border-b">
+                      {/* Headers for operator columns */}
+                      <div className="flex">
+                        <div className="w-1/4 font-medium p-2 bg-gray-100 border-r">Operation</div>
+                        {Array.from({ length: results.styleResults[activeStyleIndex].operatorsRequired }).map((_, idx) => (
+                          <div 
+                            key={idx} 
+                            className="flex-1 font-medium p-2 text-center bg-gray-100 border-r"
+                            style={{ backgroundColor: `${OPERATOR_COLORS[idx % OPERATOR_COLORS.length]}20` }}
+                          >
+                            Operator {idx + 1}
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {/* Operation allocations */}
+                      {calculateOperatorAllocation(
+                        results.styleResults[activeStyleIndex], 
+                        results.styleResults[activeStyleIndex].cycleTime
+                      ).map((op, idx) => (
+                        <div key={idx} className="flex border-t">
+                          <div className="w-1/4 p-2 border-r flex flex-col">
+                            <span className="font-medium text-sm">{op.operation}</span>
+                            <span className="text-xs text-gray-500">{op.sam.toFixed(2)} min</span>
+                          </div>
+                          
+                          {Array.from({ length: results.styleResults[activeStyleIndex].operatorsRequired }).map((_, opIdx) => (
+                            <div 
+                              key={opIdx} 
+                              className={`flex-1 p-2 border-r ${opIdx + 1 === op.operatorNumber ? 'bg-opacity-20' : ''}`}
+                              style={{ backgroundColor: opIdx + 1 === op.operatorNumber ? `${OPERATOR_COLORS[opIdx % OPERATOR_COLORS.length]}20` : '' }}
+                            >
+                              {opIdx + 1 === op.operatorNumber && (
+                                <div 
+                                  className="h-8 rounded-sm flex items-center justify-center text-white text-xs"
+                                  style={{ 
+                                    backgroundColor: OPERATOR_COLORS[opIdx % OPERATOR_COLORS.length],
+                                    width: `${Math.min(100, (op.sam / results.styleResults[activeStyleIndex].cycleTime) * 100)}%`
+                                  }}
+                                >
+                                  {op.sam.toFixed(2)}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                      
+                      {/* Time scale at bottom */}
+                      <div className="flex border-t">
+                        <div className="w-1/4 p-2 border-r font-medium text-sm">Time Scale</div>
+                        {Array.from({ length: results.styleResults[activeStyleIndex].operatorsRequired }).map((_, idx) => (
+                          <div key={idx} className="flex-1 p-2 border-r">
+                            <div className="w-full flex justify-between text-xs text-gray-500">
+                              <span>0.00</span>
+                              <span>{(results.styleResults[activeStyleIndex].cycleTime / 2).toFixed(2)}</span>
+                              <span>{results.styleResults[activeStyleIndex].cycleTime.toFixed(2)}</span>
+                            </div>
+                            <div className="w-full h-1 bg-gray-200 mt-1 rounded-full">
+                              <div className="h-1 bg-gray-400 rounded-full" style={{ width: '100%' }}></div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
