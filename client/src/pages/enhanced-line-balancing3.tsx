@@ -17,6 +17,17 @@ export default function EnhancedLineBalancing3() {
   const [targetMode, setTargetMode] = useState<'operators' | 'output'>('operators');
   const [outputDistribution, setOutputDistribution] = useState<'balanced' | 'custom'>('balanced');
   
+  // Batch processing parameters
+  const [batchSize, setBatchSize] = useState<number>(12);
+  const [batchSetupTime, setBatchSetupTime] = useState<number>(5);
+  const [batchEfficiencyFactor, setBatchEfficiencyFactor] = useState<number>(10); // Percentage reduction
+  
+  // Material movement parameters
+  const [movementTimePerOperation, setMovementTimePerOperation] = useState<number>(2); // In seconds
+  
+  // Material handling parameters
+  const [materialHandlingOverhead, setMaterialHandlingOverhead] = useState<number>(15); // Percentage
+  
   // State for results
   const [results, setResults] = useState<any>(null);
   
@@ -143,12 +154,45 @@ export default function EnhancedLineBalancing3() {
       const manualOperations = style.operations.filter((op: any) => op.isManual);
       const manualWorkContent = manualOperations.reduce((sum: number, op: any) => sum + op.sam, 0);
       
+      // Apply batch processing effects
+      // 1. Distribution of setup time across the batch
+      const setupTimePerUnit = batchSetupTime / batchSize;
+      
+      // 2. Efficiency improvement from batch processing (reduction in processing time)
+      const batchEfficiencyMultiplier = 1 - (batchEfficiencyFactor / 100);
+      const adjustedWorkContent = style.totalWorkContent * batchEfficiencyMultiplier;
+      
+      // 3. Calculate total work content with batch setup
+      const batchProcessedWorkContent = adjustedWorkContent + setupTimePerUnit;
+      
+      // Apply material movement time
+      // Calculate number of movements (operations - 1)
+      const numMovements = style.operations.length - 1;
+      // Convert movement time from seconds to minutes
+      const movementTimeInMinutes = movementTimePerOperation / 60;
+      // Total movement time
+      const totalMovementTime = numMovements * movementTimeInMinutes;
+      
+      // Apply material handling overhead
+      const handlingOverheadTime = batchProcessedWorkContent * (materialHandlingOverhead / 100);
+      
+      // Calculate the combined total work content
+      const totalAdjustedWorkContent = batchProcessedWorkContent + totalMovementTime + handlingOverheadTime;
+      
       return {
         ...style,
         bottleneckOperation,
         bottleneckTime: bottleneckOperation.sam,
         uniqueMachines,
-        manualWorkContent
+        manualWorkContent,
+        // Add new calculations
+        originalWorkContent: style.totalWorkContent,
+        batchSetupTimePerUnit: setupTimePerUnit,
+        batchEfficiencyGain: style.totalWorkContent - adjustedWorkContent,
+        batchProcessedWorkContent,
+        totalMovementTime,
+        handlingOverheadTime,
+        totalAdjustedWorkContent
       };
     });
     
@@ -157,11 +201,12 @@ export default function EnhancedLineBalancing3() {
     
     if (targetMode === 'operators') {
       // Given operators, calculate output
-      const totalWorkContent = calculations.reduce((sum, calc) => sum + calc.totalWorkContent, 0);
+      const originalTotalWorkContent = calculations.reduce((sum, calc) => sum + calc.originalWorkContent, 0);
+      const totalAdjustedWorkContent = calculations.reduce((sum, calc) => sum + calc.totalAdjustedWorkContent, 0);
       const totalOperators = availableOperators;
       
-      // Calculate theoretical cycle time
-      const theoreticalCycleTime = totalWorkContent / totalOperators;
+      // Calculate theoretical cycle time based on adjusted work content
+      const theoreticalCycleTime = totalAdjustedWorkContent / totalOperators;
       
       // Find the bottleneck across all styles
       const maxBottleneckTime = Math.max(...calculations.map(calc => calc.bottleneckTime));
@@ -181,7 +226,7 @@ export default function EnhancedLineBalancing3() {
           allocatedOutput: unitsPerStyle,
           allocatedPercentage: 100 / calculations.length,
           cycleTime: actualCycleTime,
-          operatorsRequired: Math.ceil(calc.totalWorkContent / actualCycleTime)
+          operatorsRequired: Math.ceil(calc.totalAdjustedWorkContent / actualCycleTime)
         }));
       } else {
         // Custom distribution based on ratios
@@ -191,16 +236,22 @@ export default function EnhancedLineBalancing3() {
           allocatedOutput: Math.floor(totalPossibleOutput * (calc.customRatio / totalRatio)),
           allocatedPercentage: (calc.customRatio / totalRatio) * 100,
           cycleTime: actualCycleTime,
-          operatorsRequired: Math.ceil(calc.totalWorkContent / actualCycleTime)
+          operatorsRequired: Math.ceil(calc.totalAdjustedWorkContent / actualCycleTime)
         }));
       }
       
       const totalAllocatedOutput = outputResults.reduce((sum, res) => sum + res.allocatedOutput, 0);
       const totalOperatorsRequired = outputResults.reduce((sum, res) => sum + res.operatorsRequired, 0);
-      const efficiencyPercentage = (totalWorkContent / (totalOperators * actualCycleTime)) * 100;
+      const efficiencyPercentage = (totalAdjustedWorkContent / (totalOperators * actualCycleTime)) * 100;
+      
+      // Calculate the impact of each factor
+      const totalBatchEffect = calculations.reduce((sum, calc) => sum + calc.batchProcessedWorkContent - calc.originalWorkContent, 0);
+      const totalMovementEffect = calculations.reduce((sum, calc) => sum + calc.totalMovementTime, 0);
+      const totalHandlingEffect = calculations.reduce((sum, calc) => sum + calc.handlingOverheadTime, 0);
       
       setResults({
-        totalWorkContent,
+        originalWorkContent: originalTotalWorkContent,
+        totalAdjustedWorkContent,
         availableOperators: totalOperators,
         theoreticalCycleTime,
         actualCycleTime,
@@ -209,12 +260,18 @@ export default function EnhancedLineBalancing3() {
         totalOperatorsRequired: Math.min(totalOperatorsRequired, totalOperators),
         efficiency: efficiencyPercentage,
         styleResults: outputResults,
-        calculationMode: 'operators-to-output'
+        calculationMode: 'operators-to-output',
+        // Add impact factors
+        batchProcessingImpact: totalBatchEffect,
+        movementTimeImpact: totalMovementEffect,
+        handlingOverheadImpact: totalHandlingEffect
       });
       
     } else {
       // Given output, calculate operators
       const totalTargetOutput = targetWeeklyOutput;
+      const originalTotalWorkContent = calculations.reduce((sum, calc) => sum + calc.originalWorkContent, 0);
+      const totalAdjustedWorkContent = calculations.reduce((sum, calc) => sum + calc.totalAdjustedWorkContent, 0);
       
       // Distribute output by style
       if (outputDistribution === 'balanced') {
@@ -225,8 +282,8 @@ export default function EnhancedLineBalancing3() {
           const requiredCycleTime = availableMinutes / unitsPerStyle;
           // Actual cycle time can't be less than the bottleneck
           const actualCycleTime = Math.max(requiredCycleTime, calc.bottleneckTime);
-          // Calculate operators needed
-          const operatorsRequired = Math.ceil(calc.totalWorkContent / actualCycleTime);
+          // Calculate operators needed using adjusted work content
+          const operatorsRequired = Math.ceil(calc.totalAdjustedWorkContent / actualCycleTime);
           
           return {
             ...calc,
@@ -245,8 +302,8 @@ export default function EnhancedLineBalancing3() {
           const requiredCycleTime = availableMinutes / styleOutput;
           // Actual cycle time can't be less than the bottleneck
           const actualCycleTime = Math.max(requiredCycleTime, calc.bottleneckTime);
-          // Calculate operators needed
-          const operatorsRequired = Math.ceil(calc.totalWorkContent / actualCycleTime);
+          // Calculate operators needed using adjusted work content
+          const operatorsRequired = Math.ceil(calc.totalAdjustedWorkContent / actualCycleTime);
           
           return {
             ...calc,
@@ -258,23 +315,33 @@ export default function EnhancedLineBalancing3() {
         });
       }
       
-      const totalWorkContent = calculations.reduce((sum, calc) => sum + calc.totalWorkContent, 0);
       const totalOperatorsRequired = operatorResults.reduce((sum, res) => sum + res.operatorsRequired, 0);
       const totalAllocatedOutput = operatorResults.reduce((sum, res) => sum + res.allocatedOutput, 0);
       const weightedCycleTime = operatorResults.reduce((sum, res) => sum + res.cycleTime * res.allocatedOutput, 0) / totalAllocatedOutput;
-      const efficiencyPercentage = (totalWorkContent / (totalOperatorsRequired * weightedCycleTime)) * 100;
+      const efficiencyPercentage = (totalAdjustedWorkContent / (totalOperatorsRequired * weightedCycleTime)) * 100;
+      
+      // Calculate the impact of each factor
+      const totalBatchEffect = calculations.reduce((sum, calc) => sum + calc.batchProcessedWorkContent - calc.originalWorkContent, 0);
+      const totalMovementEffect = calculations.reduce((sum, calc) => sum + calc.totalMovementTime, 0);
+      const totalHandlingEffect = calculations.reduce((sum, calc) => sum + calc.handlingOverheadTime, 0);
       
       setResults({
-        totalWorkContent,
+        originalWorkContent: originalTotalWorkContent,
+        totalAdjustedWorkContent,
         targetWeeklyOutput: totalTargetOutput,
         totalAllocatedOutput,
         totalOperatorsRequired,
         efficiency: efficiencyPercentage,
         styleResults: operatorResults,
-        calculationMode: 'output-to-operators'
+        calculationMode: 'output-to-operators',
+        // Add impact factors
+        batchProcessingImpact: totalBatchEffect,
+        movementTimeImpact: totalMovementEffect,
+        handlingOverheadImpact: totalHandlingEffect
       });
     }
-  }, [styles, totalHours, pfdFactor, availableOperators, targetWeeklyOutput, targetMode, outputDistribution]);
+  }, [styles, totalHours, pfdFactor, availableOperators, targetWeeklyOutput, targetMode, outputDistribution, 
+    batchSize, batchSetupTime, batchEfficiencyFactor, movementTimePerOperation, materialHandlingOverhead]);
   
   // Recalculate when inputs change
   useEffect(() => {
@@ -556,8 +623,13 @@ export default function EnhancedLineBalancing3() {
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="p-3 bg-blue-50 rounded">
-              <div className="text-sm text-gray-600">Total Work Content</div>
-              <div className="text-xl font-bold">{results.totalWorkContent.toFixed(2)} min</div>
+              <div className="text-sm text-gray-600">Original Work Content</div>
+              <div className="text-xl font-bold">{results.originalWorkContent.toFixed(2)} min</div>
+            </div>
+            
+            <div className="p-3 bg-blue-100 rounded">
+              <div className="text-sm text-gray-600">Adjusted Work Content</div>
+              <div className="text-xl font-bold">{results.totalAdjustedWorkContent.toFixed(2)} min</div>
             </div>
             
             {results.calculationMode === 'operators-to-output' ? (
@@ -623,7 +695,7 @@ export default function EnhancedLineBalancing3() {
                 {results.styleResults.map((style: any, i: number) => (
                   <tr key={i} className={i % 2 === 0 ? 'bg-gray-50' : ''}>
                     <td className="p-2 border-t">{style.name}</td>
-                    <td className="p-2 border-t text-right">{style.totalWorkContent.toFixed(2)}</td>
+                    <td className="p-2 border-t text-right">{style.totalAdjustedWorkContent.toFixed(2)}</td>
                     <td className="p-2 border-t text-right">{style.allocatedOutput}</td>
                     <td className="p-2 border-t text-right">{style.operatorsRequired}</td>
                     <td className="p-2 border-t text-right">{style.cycleTime.toFixed(2)}</td>
