@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import Papa from 'papaparse';
 
 export default function EnhancedLineBalancing3() {
@@ -368,8 +368,32 @@ export default function EnhancedLineBalancing3() {
       name: style.name,
       output: style.allocatedOutput,
       operators: style.operatorsRequired,
-      workContent: style.totalWorkContent
+      workContent: style.totalAdjustedWorkContent
     }));
+  };
+  
+  // Prepare data for factor impact chart
+  const prepareFactorImpactChart = () => {
+    if (!results) return [];
+    
+    return [
+      {
+        name: 'Original',
+        value: results.originalWorkContent || 0
+      },
+      {
+        name: 'Batch Processing',
+        value: results.batchProcessingImpact || 0
+      },
+      {
+        name: 'Material Movement',
+        value: results.movementTimeImpact || 0
+      },
+      {
+        name: 'Material Handling',
+        value: results.handlingOverheadImpact || 0
+      }
+    ];
   };
   
   // Constants for styling
@@ -616,6 +640,153 @@ export default function EnhancedLineBalancing3() {
         </div>
       </div>
       
+      {/* Advanced Production Parameters */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {/* Batch Processing Parameters */}
+        <div className="p-4 border rounded bg-white">
+          <h3 className="text-lg font-semibold mb-3">Batch Processing</h3>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Batch Size (units)
+              </label>
+              <input
+                type="number"
+                value={batchSize}
+                onChange={(e) => setBatchSize(parseInt(e.target.value) || 1)}
+                className="w-full p-2 border rounded"
+                min="1"
+                max="59"
+                step="1"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Number of units processed together
+              </p>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Batch Setup Time (min)
+              </label>
+              <input
+                type="number"
+                value={batchSetupTime}
+                onChange={(e) => setBatchSetupTime(parseFloat(e.target.value) || 0)}
+                className="w-full p-2 border rounded"
+                min="0"
+                max="59"
+                step="0.5"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Time to set up each batch
+              </p>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Efficiency Improvement (%)
+              </label>
+              <input
+                type="number"
+                value={batchEfficiencyFactor}
+                onChange={(e) => setBatchEfficiencyFactor(parseFloat(e.target.value) || 0)}
+                className="w-full p-2 border rounded"
+                min="0"
+                max="50"
+                step="1"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Percentage reduction in processing time
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        {/* Material Movement Parameters */}
+        <div className="p-4 border rounded bg-white">
+          <h3 className="text-lg font-semibold mb-3">Material Movement</h3>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Movement Time per Step (sec)
+              </label>
+              <input
+                type="number"
+                value={movementTimePerOperation}
+                onChange={(e) => setMovementTimePerOperation(parseFloat(e.target.value) || 0)}
+                className="w-full p-2 border rounded"
+                min="0"
+                max="59"
+                step="0.5"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Time to move materials between operations
+              </p>
+            </div>
+            
+            <div className="mt-4">
+              <h4 className="text-sm font-medium mb-2">Impact on Work Content</h4>
+              {results && (
+                <div className="text-sm border p-3 rounded bg-gray-50">
+                  <div className="flex justify-between mb-2">
+                    <span>Total Movements:</span>
+                    <span className="font-medium">{styles.reduce((sum, style) => sum + (style.operations.length - 1), 0)}</span>
+                  </div>
+                  <div className="flex justify-between mb-2">
+                    <span>Total Movement Time:</span>
+                    <span className="font-medium">{results.movementTimeImpact ? results.movementTimeImpact.toFixed(2) : '0.00'} min</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        {/* Material Handling Parameters */}
+        <div className="p-4 border rounded bg-white">
+          <h3 className="text-lg font-semibold mb-3">Material Handling</h3>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Handling Overhead (%)
+              </label>
+              <input
+                type="number"
+                value={materialHandlingOverhead}
+                onChange={(e) => setMaterialHandlingOverhead(parseFloat(e.target.value) || 0)}
+                className="w-full p-2 border rounded"
+                min="0"
+                max="50"
+                step="1"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Percentage of additional time for material handling
+              </p>
+            </div>
+            
+            <div className="mt-4">
+              <h4 className="text-sm font-medium mb-2">Impact on Work Content</h4>
+              {results && (
+                <div className="text-sm border p-3 rounded bg-gray-50">
+                  <div className="flex justify-between mb-2">
+                    <span>Handling Overhead Time:</span>
+                    <span className="font-medium">{results.handlingOverheadImpact ? results.handlingOverheadImpact.toFixed(2) : '0.00'} min</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Additional Operators Needed:</span>
+                    <span className="font-medium">
+                      {results.handlingOverheadImpact && results.actualCycleTime
+                        ? Math.ceil(results.handlingOverheadImpact / results.actualCycleTime)
+                        : '0'}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+      
       {/* Results Section */}
       {results && (
         <div className="p-4 border rounded bg-white mb-8">
@@ -706,8 +877,113 @@ export default function EnhancedLineBalancing3() {
             </table>
           </div>
           
+          {/* Factor Impact Visualization */}
+          <div className="mb-6">
+            <h4 className="text-sm font-medium mb-2">Impact of Production Factors</h4>
+            <div className="p-4 bg-gray-50 rounded border">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div className="p-3 bg-orange-50 rounded border border-orange-100">
+                  <div className="text-sm text-gray-600">Batch Processing Impact</div>
+                  <div className="text-xl font-bold">{results.batchProcessingImpact ? results.batchProcessingImpact.toFixed(2) : '0.00'} min</div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {results.batchProcessingImpact && results.originalWorkContent 
+                      ? ((results.batchProcessingImpact / results.originalWorkContent) * 100).toFixed(1) 
+                      : '0.0'}% of original work content
+                  </div>
+                </div>
+                
+                <div className="p-3 bg-teal-50 rounded border border-teal-100">
+                  <div className="text-sm text-gray-600">Material Movement Impact</div>
+                  <div className="text-xl font-bold">{results.movementTimeImpact ? results.movementTimeImpact.toFixed(2) : '0.00'} min</div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {results.movementTimeImpact && results.originalWorkContent 
+                      ? ((results.movementTimeImpact / results.originalWorkContent) * 100).toFixed(1) 
+                      : '0.0'}% of original work content
+                  </div>
+                </div>
+                
+                <div className="p-3 bg-violet-50 rounded border border-violet-100">
+                  <div className="text-sm text-gray-600">Material Handling Impact</div>
+                  <div className="text-xl font-bold">{results.handlingOverheadImpact ? results.handlingOverheadImpact.toFixed(2) : '0.00'} min</div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {results.handlingOverheadImpact && results.originalWorkContent 
+                      ? ((results.handlingOverheadImpact / results.originalWorkContent) * 100).toFixed(1) 
+                      : '0.0'}% of original work content
+                  </div>
+                </div>
+              </div>
+              
+              <div className="relative pt-1">
+                <div className="flex mb-2 items-center justify-between">
+                  <div className="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-blue-600 bg-blue-200">
+                    Total Impact: {results.totalAdjustedWorkContent && results.originalWorkContent 
+                      ? ((results.totalAdjustedWorkContent - results.originalWorkContent) / results.originalWorkContent * 100).toFixed(1) 
+                      : '0.0'}%
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs font-semibold inline-block text-blue-600">
+                      {results.originalWorkContent ? results.originalWorkContent.toFixed(2) : '0.00'} → {results.totalAdjustedWorkContent ? results.totalAdjustedWorkContent.toFixed(2) : '0.00'} min
+                    </span>
+                  </div>
+                </div>
+                <div className="overflow-hidden h-6 mb-4 text-xs flex rounded bg-gray-200">
+                  <div style={{ width: "100%" }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-100">
+                    <div style={{ 
+                      width: `${results.originalWorkContent && results.totalAdjustedWorkContent ? (results.originalWorkContent / results.totalAdjustedWorkContent) * 100 : 100}%` 
+                    }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500">
+                      Original
+                    </div>
+                  </div>
+                </div>
+                <div className="flex text-xs text-gray-500 justify-between">
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 bg-orange-400 mr-1 rounded-sm"></div>
+                    <span>Batch</span>
+                  </div>
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 bg-teal-400 mr-1 rounded-sm"></div>
+                    <span>Movement</span>
+                  </div>
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 bg-violet-400 mr-1 rounded-sm"></div>
+                    <span>Handling</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
           {/* Charts */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="h-80">
+              <h4 className="text-sm font-medium mb-2">Impact Factors</h4>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie 
+                    data={prepareFactorImpactChart()} 
+                    cx="50%" 
+                    cy="50%" 
+                    labelLine={false}
+                    outerRadius={80} 
+                    fill="#8884d8" 
+                    dataKey="value"
+                    nameKey="name"
+                    label={({name, percent}) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {prepareFactorImpactChart().map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={
+                        index === 0 ? '#1E40AF' : // Original
+                        index === 1 ? '#F97316' : // Batch
+                        index === 2 ? '#14B8A6' : // Movement
+                        '#8B5CF6'                 // Handling
+                      } />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => `${parseFloat(value).toFixed(2)} min`} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            
             <div className="h-80">
               <h4 className="text-sm font-medium mb-2">Output Distribution</h4>
               <ResponsiveContainer width="100%" height="100%">
