@@ -110,25 +110,30 @@ export default function VisualizationTab({ state }: VisualizationTabProps) {
   const prepareMaterialHandlingData = () => {
     if (!results) return [];
     
+    // Get the handlingOverheadPercentage value directly from state to avoid redeclaration
+    const handlingOverheadValue = state.handlingOverheadPercentage;
+    const materialComplexityValue = state.materialComplexity;
+    const specialHandlingReqs = state.specialHandlingRequirements;
+    
     // Create data based on material complexity and special requirements
     const data = [
-      { name: 'Base Overhead', value: state.handlingOverheadPercentage },
-      { name: 'Complexity', value: state.materialComplexity === 'low' ? 1 : 
-                                  state.materialComplexity === 'medium' ? 2 : 
-                                  state.materialComplexity === 'high' ? 3 : 4 }
+      { name: 'Base Overhead', value: handlingOverheadValue },
+      { name: 'Complexity', value: materialComplexityValue === 'low' ? 1 : 
+                                   materialComplexityValue === 'medium' ? 2 : 
+                                   materialComplexityValue === 'high' ? 3 : 4 }
     ];
     
     // Add special requirements
-    if (state.specialHandlingRequirements.includes('fragile')) {
+    if (specialHandlingReqs.includes('fragile')) {
       data.push({ name: 'Fragile', value: 2 });
     }
-    if (state.specialHandlingRequirements.includes('heavy')) {
+    if (specialHandlingReqs.includes('heavy')) {
       data.push({ name: 'Heavy', value: 2 });
     }
-    if (state.specialHandlingRequirements.includes('hazardous')) {
+    if (specialHandlingReqs.includes('hazardous')) {
       data.push({ name: 'Hazardous', value: 3 });
     }
-    if (state.specialHandlingRequirements.includes('temperature')) {
+    if (specialHandlingReqs.includes('temperature')) {
       data.push({ name: 'Temperature', value: 2 });
     }
     
