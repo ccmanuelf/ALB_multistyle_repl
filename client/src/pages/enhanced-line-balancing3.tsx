@@ -13,6 +13,100 @@ const OPERATOR_COLORS = [
 ];
 
 // Function to generate recommendations based on line balancing results
+// Compare automatic versus manual allocation efficiency
+function compareAllocations(styleResult: any) {
+  // Calculate automatic allocation efficiency
+  const automaticOperators = calculateOperatorWorkload(
+    calculateOperatorAllocation(styleResult, styleResult.cycleTime),
+    styleResult.cycleTime
+  );
+  
+  const automaticAvgUtilization = automaticOperators.reduce((sum, op) => sum + op.utilized, 0) / automaticOperators.length;
+  const automaticUtilizationVariance = automaticOperators.reduce(
+    (sum, op) => sum + Math.pow(op.utilized - automaticAvgUtilization, 2), 0
+  ) / automaticOperators.length;
+  
+  // Create a workload balance score (0-100) where 100 is perfect balance
+  const automaticBalanceScore = 100 - (Math.sqrt(automaticUtilizationVariance) * 2);
+  
+  // Calculate manual allocation
+  const manualOperators = calculateManualAllocation(styleResult);
+  
+  const manualAvgUtilization = manualOperators.reduce((sum, op) => sum + op.utilized, 0) / manualOperators.length;
+  const manualUtilizationVariance = manualOperators.reduce(
+    (sum, op) => sum + Math.pow(op.utilized - manualAvgUtilization, 2), 0
+  ) / manualOperators.length;
+  
+  const manualBalanceScore = 100 - (Math.sqrt(manualUtilizationVariance) * 2);
+  
+  return {
+    automatic: {
+      efficiency: automaticAvgUtilization,
+      workloadBalance: automaticBalanceScore
+    },
+    manual: {
+      efficiency: manualAvgUtilization,
+      workloadBalance: manualBalanceScore
+    }
+  };
+}
+
+// Calculate operator allocation based on manual assignments
+function calculateManualAllocation(styleResult: any) {
+  const styleIdx = activeStyleIndex!.toString();
+  const cycleTime = styleResult.cycleTime;
+  
+  // Find the highest operator number assigned
+  let maxOperator = 0;
+  if (manualAssignments[styleIdx]) {
+    Object.values(manualAssignments[styleIdx]).forEach(opNumber => {
+      maxOperator = Math.max(maxOperator, Number(opNumber));
+    });
+  }
+  
+  // Initialize operators array
+  const operators: Operator[] = Array.from({length: maxOperator}, (_, idx) => ({
+    id: idx + 1,
+    name: `Operator ${idx + 1}`,
+    skills: [],
+    utilized: 0,
+    workload: 0,
+    operations: []
+  }));
+  
+  // Assign operations to operators
+  styleResult.operations.forEach((op: any) => {
+    const stepStr = op.step.toString();
+    let opNumber = 1; // Default to first operator
+    
+    if (manualAssignments[styleIdx] && manualAssignments[styleIdx][stepStr]) {
+      opNumber = manualAssignments[styleIdx][stepStr];
+    }
+    
+    // Ensure operator exists (might need to expand array)
+    if (opNumber > operators.length) {
+      for (let i = operators.length + 1; i <= opNumber; i++) {
+        operators.push({
+          id: i,
+          name: `Operator ${i}`,
+          skills: [],
+          utilized: 0,
+          workload: 0,
+          operations: []
+        });
+      }
+    }
+    
+    // Assign operation to operator
+    const opIndex = opNumber - 1;
+    operators[opIndex].operations.push(op.step);
+    operators[opIndex].workload += op.sam;
+    operators[opIndex].utilized = (operators[opIndex].workload / cycleTime) * 100;
+  });
+  
+  return operators;
+}
+
 function generateRecommendations() {
   const recommendations: string[] = [];
   
