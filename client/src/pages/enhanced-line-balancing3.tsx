@@ -123,6 +123,161 @@ export default function EnhancedLineBalancing3() {
   // State for results
   const [results, setResults] = useState<any>(null);
   
+  // State for operator management
+  const [operators, setOperators] = useState<Operator[]>([]);
+  const [manualAssignments, setManualAssignments] = useState<{[styleIndex: string]: {[operationStep: string]: number}}>({});
+  const [assignmentMode, setAssignmentMode] = useState<'automatic' | 'manual'>('automatic');
+  const [allocationComparison, setAllocationComparison] = useState<{
+    automatic: {efficiency: number, workloadBalance: number},
+    manual: {efficiency: number, workloadBalance: number}
+  } | null>(null);
+  
+  // Interface definitions
+  interface Operator {
+    id: number;
+    name: string;
+    skills: string[];
+    utilized: number; // Percentage of operator's time used (0-100)
+    workload: number; // Time allocated in minutes
+    operations: number[]; // Step numbers of operations assigned
+  }
+
+  interface OperationAllocation {
+    step: number;
+    operation: string;
+    type: string;
+    sam: number;
+    operatorNumber: number;
+    startTime: number;
+    endTime: number;
+    isManuallyAssigned?: boolean; // Flag to indicate if this was manually assigned
+  }
+  
+  // Initialize operators based on calculation results
+  const initializeOperators = useCallback((requiredOperators: number) => {
+    // Create default operators with sequential IDs and names
+    const newOperators: Operator[] = [];
+    for (let i = 1; i <= requiredOperators; i++) {
+      newOperators.push({
+        id: i,
+        name: `Operator ${i}`,
+        skills: [],
+        utilized: 0, // Will be calculated later
+        workload: 0, // Will be calculated later
+        operations: []
+      });
+    }
+    setOperators(newOperators);
+    return newOperators;
+  }, []);
+  
+  // Calculate operator allocation based on style and cycle time
+  const calculateOperatorAllocation = (style: any, cycleTime: number, useManualAssignment = false): OperationAllocation[] => {
+    if (!style || !style.operations) return [];
+    
+    const operations = [...style.operations].sort((a, b) => a.step - b.step);
+    const result: OperationAllocation[] = [];
+    let currentOperator = 1;
+    let currentTime = 0;
+    
+    for (const op of operations) {
+      // Check if we have a manual assignment for this operation
+      if (useManualAssignment && manualAssignments[activeStyleIndex] && 
+          manualAssignments[activeStyleIndex][op.step]) {
+        // Use manually assigned operator
+        const assignedOperator = manualAssignments[activeStyleIndex][op.step];
+        result.push({
+          step: op.step,
+          operation: op.operation,
+          type: op.type,
+          sam: op.sam,
+          operatorNumber: assignedOperator,
+          startTime: 0, // Will be calculated later
+          endTime: op.sam,
+          isManuallyAssigned: true
+        });
+      } else {
+        // Use automatic allocation
+        if (currentTime + op.sam > cycleTime) {
+          // Move to next operator
+          currentOperator++;
+          currentTime = 0;
+        }
+        
+        result.push({
+          step: op.step,
+          operation: op.operation,
+          type: op.type,
+          sam: op.sam,
+          operatorNumber: currentOperator,
+          startTime: currentTime,
+          endTime: currentTime + op.sam
+        });
+        
+        currentTime += op.sam;
+      }
+    }
+    
+    // If using manual assignments, calculate proper start/end times within each operator
+    if (useManualAssignment) {
+      // Group by operator
+      const operatorGroups: {[key: number]: OperationAllocation[]} = {};
+      
+      for (const alloc of result) {
+        if (!operatorGroups[alloc.operatorNumber]) {
+          operatorGroups[alloc.operatorNumber] = [];
+        }
+        operatorGroups[alloc.operatorNumber].push(alloc);
+      }
+      
+      // Calculate sequential timing for each operator's operations
+      for (const opNum in operatorGroups) {
+        let opTime = 0;
+        for (const alloc of operatorGroups[opNum]) {
+          alloc.startTime = opTime;
+          alloc.endTime = opTime + alloc.sam;
+          opTime += alloc.sam;
+        }
+      }
+    }
+    
+    return result;
+  };
+
+  // Calculate workload for each operator based on allocations
+  const calculateOperatorWorkload = (allocation: OperationAllocation[], cycleTime: number): Operator[] => {
+    if (!allocation || allocation.length === 0) return [];
+    
+    // Group operations by operator
+    const operatorMap: {[key: number]: Operator} = {};
+    
+    for (const op of allocation) {
+      if (!operatorMap[op.operatorNumber]) {
+        operatorMap[op.operatorNumber] = {
+          id: op.operatorNumber,
+          name: `Operator ${op.operatorNumber}`,
+          skills: [],
+          utilized: 0,
+          workload: 0,
+          operations: []
+        };
+      }
+      
+      // Add operation to this operator
+      operatorMap[op.operatorNumber].workload += op.sam;
+      operatorMap[op.operatorNumber].operations.push(op.step);
+    }
+    
+    // Calculate utilization percentage
+    const operators = Object.values(operatorMap);
+    for (const op of operators) {
+      op.utilized = (op.workload / cycleTime) * 100;
+    }
+    
+    // Sort by operator ID
+    return operators.sort((a, b) => a.id - b.id);
+  };
+  
   // Sample data for initial load
   const sampleJoggerData = [
     {step: 1, operation: 'Estampar etiqueta', type: 'Ink Transfer', sam: 0.429, isManual: false},
@@ -456,6 +611,31 @@ export default function EnhancedLineBalancing3() {
     calculateLineBalancing();
   }, [calculateLineBalancing]);
   
+  // Initialize operators when results change
+  useEffect(() => {
+    if (results && results.styleResults && results.styleResults.length > 0) {
+      const totalOperators = results.totalOperatorsRequired || 
+        results.styleResults.reduce((sum: number, style: any) => sum + style.operatorsRequired, 0);
+      
+      // Initialize operators
+      initializeOperators(totalOperators);
+      
+      // Reset manual assignments if needed
+      if (!manualAssignments[activeStyleIndex]) {
+        setManualAssignments({
+          ...manualAssignments,
+          [activeStyleIndex]: {}
+        });
+      }
+      
+      // Calculate comparison metrics if in manual assignment mode
+      if (assignmentMode === 'manual' && results.styleResults[activeStyleIndex]) {
+        const comparison = compareAllocations(results.styleResults[activeStyleIndex]);
+        setAllocationComparison(comparison);
+      }
+    }
+  }, [results, initializeOperators, activeStyleIndex, assignmentMode, manualAssignments]);
+  
   // Handle style ratio change
   const handleStyleRatioChange = (index: number, newRatio: string) => {
     setStyles(prev => {
@@ -525,41 +705,60 @@ export default function EnhancedLineBalancing3() {
     isManuallyAssigned?: boolean; // Flag to indicate if this was manually assigned
   }
 
-  // Calculate operator allocation for a specific style
-  const calculateOperatorAllocation = (style: any, cycleTime: number): OperationAllocation[] => {
-    if (!style || !style.operations) return [];
+  // Calculate workload balance (standard deviation of workload as percentage)
+  const calculateWorkloadBalance = (operatorsWithWorkload: Operator[], cycleTime: number): number => {
+    if (operatorsWithWorkload.length === 0) return 0;
     
-    const operatorAllocation: OperationAllocation[] = [];
-    let currentOperator = 1;
-    let currentOperatorTime = 0;
+    // Calculate utilization percentages
+    const utilizations = operatorsWithWorkload.map(op => (op.workload / cycleTime) * 100);
     
-    // Sort operations by step number for proper sequence
-    const sortedOperations = [...style.operations].sort((a, b) => a.step - b.step);
+    // Calculate mean
+    const mean = utilizations.reduce((sum, u) => sum + u, 0) / utilizations.length;
     
-    // Allocate operations to operators
-    sortedOperations.forEach((operation, index) => {
-      // If adding this operation exceeds the cycle time, move to next operator
-      if (currentOperatorTime + operation.sam > cycleTime && currentOperatorTime > 0) {
-        currentOperator++;
-        currentOperatorTime = 0;
+    // Calculate standard deviation
+    const squaredDiffs = utilizations.map(u => Math.pow(u - mean, 2));
+    const variance = squaredDiffs.reduce((sum, diff) => sum + diff, 0) / utilizations.length;
+    const stdDev = Math.sqrt(variance);
+    
+    // Return balance score (100 - stdDev)
+    // Higher is better (100 = perfect balance, lower numbers = imbalance)
+    return Math.max(0, 100 - stdDev);
+  };
+
+  // Calculate operator allocation for a specific style is already defined above
+  
+  // Calculate operator workload from allocation is already defined above
+  
+  // Compare automatic vs manual allocation efficiency
+  const compareAllocations = (style: any) => {
+    if (!style) return null;
+    
+    const cycleTime = style.cycleTime;
+    
+    // Get automatic allocation
+    const autoAllocation = calculateOperatorAllocation(style, cycleTime, false);
+    const autoOperators = calculateOperatorWorkload(autoAllocation, cycleTime);
+    const autoBalance = calculateWorkloadBalance(autoOperators, cycleTime);
+    
+    // Get manual allocation
+    const manualAllocation = calculateOperatorAllocation(style, cycleTime, true);
+    const manualOperators = calculateOperatorWorkload(manualAllocation, cycleTime);
+    const manualBalance = calculateWorkloadBalance(manualOperators, cycleTime);
+    
+    // Calculate efficiency for each (actual work content / total possible work content)
+    const autoEfficiency = (style.totalAdjustedWorkContent / (autoOperators.length * cycleTime)) * 100;
+    const manualEfficiency = (style.totalAdjustedWorkContent / (manualOperators.length * cycleTime)) * 100;
+    
+    return {
+      automatic: {
+        efficiency: autoEfficiency,
+        workloadBalance: autoBalance
+      },
+      manual: {
+        efficiency: manualEfficiency,
+        workloadBalance: manualBalance
       }
-      
-      // Assign operation to current operator
-      operatorAllocation.push({
-        step: operation.step,
-        operation: operation.operation,
-        type: operation.type,
-        sam: operation.sam,
-        operatorNumber: currentOperator,
-        startTime: currentOperatorTime,
-        endTime: currentOperatorTime + operation.sam
-      });
-      
-      // Update current operator's time
-      currentOperatorTime += operation.sam;
-    });
-    
-    return operatorAllocation;
+    };
   };
   
   // Calculate hourly production
@@ -1640,6 +1839,117 @@ export default function EnhancedLineBalancing3() {
                           </div>
                         ))}
                       </div>
+                    </div>
+                  </div>
+                  
+                  {/* Operator Workload Visualization */}
+                  <div className="mt-6 pt-4 border-t">
+                    <h4 className="text-md font-semibold mb-3">Operator Workload Analysis</h4>
+                    <p className="mb-4 text-sm">
+                      This chart shows the workload distribution across operators. Ideally, all operators should have
+                      balanced workloads close to 100% utilization.
+                    </p>
+                    
+                    {/* Workload bars */}
+                    <div className="space-y-3 mb-6">
+                      {calculateOperatorWorkload(
+                        calculateOperatorAllocation(
+                          results.styleResults[activeStyleIndex],
+                          results.styleResults[activeStyleIndex].cycleTime
+                        ),
+                        results.styleResults[activeStyleIndex].cycleTime
+                      ).map((operator, idx) => {
+                        const utilizationPercentage = operator.utilized;
+                        
+                        // Determine color based on utilization
+                        let barColor, textColor;
+                        if (utilizationPercentage < 70) {
+                          barColor = 'bg-blue-400'; // Underutilized
+                          textColor = 'text-blue-700';
+                        } else if (utilizationPercentage < 90) {
+                          barColor = 'bg-green-500'; // Well utilized
+                          textColor = 'text-green-700';
+                        } else {
+                          barColor = 'bg-amber-500'; // Fully/Over utilized
+                          textColor = 'text-amber-700';
+                        }
+                        
+                        return (
+                          <div key={idx} className="flex flex-col">
+                            <div className="flex justify-between mb-1 items-center">
+                              <div className="flex items-center">
+                                <div 
+                                  className="w-3 h-3 rounded-full mr-2"
+                                  style={{ backgroundColor: OPERATOR_COLORS[idx % OPERATOR_COLORS.length] }}
+                                ></div>
+                                <span className="text-sm font-medium">{operator.name}</span>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <span className={`text-xs font-semibold ${textColor}`}>
+                                  {utilizationPercentage.toFixed(1)}% utilized
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  ({operator.workload.toFixed(2)} min)
+                                </span>
+                              </div>
+                            </div>
+                            
+                            <div className="w-full bg-gray-200 rounded-full h-2.5">
+                              <div
+                                className={`${barColor} h-2.5 rounded-full transition-all duration-500`}
+                                style={{ width: `${Math.min(100, utilizationPercentage)}%` }}
+                              ></div>
+                            </div>
+                            
+                            <div className="text-xs text-gray-500 mt-1">
+                              <span>Assigned steps: {operator.operations.join(', ')}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    
+                    {/* Summary stats */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-3 bg-gray-50 rounded-lg">
+                      {(() => {
+                        const operators = calculateOperatorWorkload(
+                          calculateOperatorAllocation(
+                            results.styleResults[activeStyleIndex],
+                            results.styleResults[activeStyleIndex].cycleTime
+                          ),
+                          results.styleResults[activeStyleIndex].cycleTime
+                        );
+                        
+                        // Calculate average utilization
+                        const avgUtilization = operators.reduce((sum, op) => sum + op.utilized, 0) / operators.length;
+                        
+                        // Find most and least utilized operators
+                        const mostUtilized = operators.reduce((max, op) => op.utilized > max.utilized ? op : max, operators[0]);
+                        const leastUtilized = operators.reduce((min, op) => op.utilized < min.utilized ? op : min, operators[0]);
+                        
+                        // Calculate utilization variance (as a basic workload balance metric)
+                        const utilizationVariance = operators.reduce((sum, op) => sum + Math.pow(op.utilized - avgUtilization, 2), 0) / operators.length;
+                        
+                        return (
+                          <>
+                            <div className="text-center">
+                              <div className="text-sm font-medium text-gray-500">Average Utilization</div>
+                              <div className="text-xl font-semibold">{avgUtilization.toFixed(1)}%</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-sm font-medium text-gray-500">Workload Imbalance</div>
+                              <div className="text-xl font-semibold">{Math.sqrt(utilizationVariance).toFixed(1)}%</div>
+                              <div className="text-xs text-gray-400">(std. deviation)</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-sm font-medium text-gray-500">Utilization Range</div>
+                              <div className="text-xl font-semibold">
+                                {leastUtilized.utilized.toFixed(1)}% - {mostUtilized.utilized.toFixed(1)}%
+                              </div>
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                 </>
