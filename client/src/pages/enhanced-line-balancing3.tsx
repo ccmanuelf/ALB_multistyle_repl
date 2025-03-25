@@ -1140,8 +1140,16 @@ export default function EnhancedLineBalancing3() {
       
       {/* Results Section */}
       {results && (
-        <div className="p-4 border rounded bg-white mb-8">
-          <h3 className="text-lg font-semibold mb-3">Line Balancing Results</h3>
+        <div className="p-4 border rounded bg-white mb-8" ref={resultsRef}>
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-lg font-semibold">Line Balancing Results</h3>
+            <button
+              onClick={exportPDF}
+              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center"
+            >
+              <span>Export PDF Report</span>
+            </button>
+          </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="p-3 bg-blue-50 rounded">
@@ -1503,6 +1511,29 @@ export default function EnhancedLineBalancing3() {
               )}
             </div>
           )}
+          
+          {/* Recommendations Section */}
+          <div className="p-4 border rounded bg-white mb-6">
+            <h3 className="text-lg font-semibold mb-3">Analysis & Recommendations</h3>
+            <div className="space-y-2">
+              {generateRecommendations().map((recommendation, idx) => (
+                <div key={idx} className="flex items-start p-3 bg-blue-50 rounded border border-blue-100">
+                  <div className="mr-2 mt-0.5 text-blue-500">
+                    {idx === 0 ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="text-sm">{recommendation}</div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>
