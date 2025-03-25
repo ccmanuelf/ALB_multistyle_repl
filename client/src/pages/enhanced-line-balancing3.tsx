@@ -12,6 +12,82 @@ const OPERATOR_COLORS = [
   '#d946ef', '#f43f5e', '#0284c7', '#4f46e5', '#be123c', '#166534'
 ];
 
+// Function to generate recommendations based on line balancing results
+function generateRecommendations() {
+  const recommendations: string[] = [];
+  
+  // Add default recommendations if no results available
+  if (!results) {
+    return [
+      "Run calculations to see personalized recommendations for your production line.",
+      "Consider batch sizes of 10-20 units for optimal efficiency balance."
+    ];
+  }
+  
+  // Efficiency recommendation
+  if (results.efficiency < 75) {
+    recommendations.push(
+      `Current line efficiency is ${results.efficiency.toFixed(1)}%. Consider redistributing operations to balance workload across operators and reduce idle time.`
+    );
+  } else if (results.efficiency >= 90) {
+    recommendations.push(
+      `Excellent line efficiency at ${results.efficiency.toFixed(1)}%. Current operation distribution is well optimized, though careful monitoring is recommended to maintain this level.`
+    );
+  } else {
+    recommendations.push(
+      `Good line efficiency at ${results.efficiency.toFixed(1)}%. Small improvements could be made by fine-tuning operation assignments to reduce remaining idle time.`
+    );
+  }
+  
+  // Batch processing recommendation
+  if (results.batchProcessingImpact > 0.15) {
+    recommendations.push(
+      `Batch processing is adding ${(results.batchProcessingImpact * 100).toFixed(1)}% to your total work content. Consider reducing batch size or optimizing setup procedures to minimize this impact.`
+    );
+  }
+  
+  // Movement time recommendation
+  if (results.movementTimeImpact > 0.1) {
+    recommendations.push(
+      `Material movement between operations accounts for ${(results.movementTimeImpact * 100).toFixed(1)}% of total work content. Consider reorganizing workstations to minimize travel distances.`
+    );
+  }
+  
+  // Material handling recommendation
+  if (results.handlingOverheadImpact > 0.12) {
+    recommendations.push(
+      `Material handling overhead is significant at ${(results.handlingOverheadImpact * 100).toFixed(1)}% of work content. Implementing improved material presentation methods could reduce this overhead.`
+    );
+  }
+  
+  // Bottleneck recommendation
+  if (results.styleResults.length > 0) {
+    const bottlenecks = results.styleResults
+      .filter(style => style.bottleneckOperation && style.bottleneckTime > 0)
+      .map(style => ({
+        styleName: style.name,
+        operation: style.bottleneckOperation,
+        time: style.bottleneckTime
+      }));
+    
+    if (bottlenecks.length > 0) {
+      const worstBottleneck = bottlenecks.reduce((prev, current) => 
+        current.time > prev.time ? current : prev, bottlenecks[0]);
+      
+      recommendations.push(
+        `Bottleneck identified in "${worstBottleneck.styleName}" at step ${worstBottleneck.operation.step} - "${worstBottleneck.operation.operation}" (${worstBottleneck.time.toFixed(2)} min). Consider splitting this operation or adding additional operators.`
+      );
+    }
+  }
+  
+  // General productivity improvement suggestion
+  recommendations.push(
+    "Consider implementing a continuous improvement program focused on reducing non-value-added time in the production process."
+  );
+  
+  return recommendations;
+}
+
 export default function EnhancedLineBalancing3() {
   // State for file upload and data
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
