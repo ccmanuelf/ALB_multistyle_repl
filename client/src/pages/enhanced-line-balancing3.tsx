@@ -1,6 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import Papa from 'papaparse';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import html2canvas from 'html2canvas';
 
 // Colors for the operator allocation chart
 const OPERATOR_COLORS = [
@@ -23,6 +26,12 @@ export default function EnhancedLineBalancing3() {
   const [targetWeeklyOutput, setTargetWeeklyOutput] = useState<number>(1000);
   const [targetMode, setTargetMode] = useState<'operators' | 'output'>('operators');
   const [outputDistribution, setOutputDistribution] = useState<'balanced' | 'custom'>('balanced');
+  
+  // Shift parameters
+  const [shiftsPerDay, setShiftsPerDay] = useState<number>(1);
+  const [shiftHours, setShiftHours] = useState<number[]>([9, 8, 7]); // Hours per shift: [1st, 2nd, 3rd]
+  const [selectiveOperations, setSelectiveOperations] = useState<boolean>(false);
+  const [selectedOperations, setSelectedOperations] = useState<{[styleIndex: string]: {[operationId: string]: boolean}}>({});
   
   // Batch processing parameters
   const [batchSize, setBatchSize] = useState<number>(12);
@@ -142,8 +151,18 @@ export default function EnhancedLineBalancing3() {
       return;
     }
     
-    // Calculate available minutes
-    const availableMinutes = totalHours * 60 * pfdFactor;
+    // Calculate available minutes based on shifts
+    let availableMinutes;
+    
+    if (shiftsPerDay === 1) {
+      // Single shift (standard calculation)
+      availableMinutes = totalHours * 60 * pfdFactor;
+    } else {
+      // Multiple shifts
+      // Get hours from each active shift
+      const totalShiftHours = shiftHours.slice(0, shiftsPerDay).reduce((sum, hours) => sum + hours, 0) * 5; // 5 days per week
+      availableMinutes = totalShiftHours * 60 * pfdFactor;
+    }
     
     const calculations = styles.map(style => {
       // Find the bottleneck operation
@@ -348,7 +367,8 @@ export default function EnhancedLineBalancing3() {
       });
     }
   }, [styles, totalHours, pfdFactor, availableOperators, targetWeeklyOutput, targetMode, outputDistribution, 
-    batchSize, batchSetupTime, batchEfficiencyFactor, movementTimePerOperation, materialHandlingOverhead]);
+    batchSize, batchSetupTime, batchEfficiencyFactor, movementTimePerOperation, materialHandlingOverhead,
+    shiftsPerDay, shiftHours, selectiveOperations, selectedOperations]);
   
   // Recalculate when inputs change
   useEffect(() => {
@@ -451,6 +471,147 @@ export default function EnhancedLineBalancing3() {
   // Constants for styling
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
   
+  // Reference for PDF export
+  const resultsRef = useRef<HTMLDivElement>(null);
+  
+  // Function to generate recommendations based on results
+  const generateRecommendations = () => {
+    if (!results) return [];
+    
+    const recommendations = [];
+    
+    // Check efficiency
+    if (results.efficiency < 70) {
+      recommendations.push("Line efficiency is below 70%. Consider rebalancing operations across operators.");
+    }
+    
+    // Check bottlenecks
+    if (results.styleResults && results.styleResults.length > 0) {
+      const bottlenecks = results.styleResults
+        .map((style: any) => style.bottleneckOperation)
+        .filter((op: any) => op.sam > results.actualCycleTime * 0.8);
+      
+      if (bottlenecks.length > 0) {
+        recommendations.push(`Critical bottlenecks detected: ${bottlenecks.map((op: any) => op.operation).join(', ')}. Consider breaking down these operations.`);
+      }
+    }
+    
+    // Check multi-shift operations
+    if (shiftsPerDay > 1 && selectiveOperations) {
+      const multiShiftOpsCount = Object.values(selectedOperations).reduce((count, styleOps: any) => {
+        return count + Object.values(styleOps).filter(Boolean).length;
+      }, 0);
+      
+      if (multiShiftOpsCount === 0) {
+        recommendations.push("No operations selected for multi-shift processing. Consider selecting key operations to run across multiple shifts.");
+      }
+    }
+    
+    // Check operator balance
+    if (results.styleResults && results.styleResults.length > 0) {
+      const styleWithMostOperators = results.styleResults.reduce(
+        (max: any, style: any) => style.operatorsRequired > max.operatorsRequired ? style : max, 
+        { operatorsRequired: 0 }
+      );
+      
+      if (styleWithMostOperators.operatorsRequired > 0) {
+        recommendations.push(`Style '${styleWithMostOperators.name}' requires the most operators (${styleWithMostOperators.operatorsRequired}). Ensure proper training and resource allocation.`);
+      }
+    }
+    
+    return recommendations.length > 0 ? recommendations : ["Production line is well-balanced with no critical issues detected."];
+  };
+  
+  // Function to export results as PDF
+  const exportPDF = async () => {
+    if (!results || !resultsRef.current) return;
+    
+    const pdf = new jsPDF('portrait', 'mm', 'a4');
+    
+    // Add title
+    pdf.setFontSize(18);
+    pdf.text('Line Balancing Analysis Report', 105, 15, { align: 'center' });
+    pdf.setFontSize(12);
+    pdf.text(`Generated on ${new Date().toLocaleDateString()}`, 105, 22, { align: 'center' });
+    
+    // Add summary section
+    pdf.setFontSize(14);
+    pdf.text('Summary', 14, 30);
+    pdf.setFontSize(10);
+    pdf.text(`Total Work Content: ${results.totalAdjustedWorkContent.toFixed(2)} minutes`, 14, 38);
+    pdf.text(`Efficiency: ${results.efficiency.toFixed(2)}%`, 14, 44);
+    
+    if (results.calculationMode === 'operators-to-output') {
+      pdf.text(`Available Operators: ${results.availableOperators}`, 14, 50);
+      pdf.text(`Total Output per Week: ${results.totalAllocatedOutput} units`, 14, 56);
+    } else {
+      pdf.text(`Target Output per Week: ${results.targetWeeklyOutput} units`, 14, 50);
+      pdf.text(`Total Operators Required: ${results.totalOperatorsRequired}`, 14, 56);
+    }
+    
+    // Shift information
+    pdf.text(`Shifts per Day: ${shiftsPerDay}`, 14, 62);
+    if (shiftsPerDay > 1) {
+      const shiftHoursText = shiftHours.slice(0, shiftsPerDay).map((hours, idx) => `Shift ${idx+1}: ${hours} hours`).join(', ');
+      pdf.text(`Shift Hours: ${shiftHoursText}`, 14, 68);
+    }
+    
+    // Add style details
+    pdf.setFontSize(14);
+    pdf.text('Style Details', 14, 76);
+    
+    const styleData = results.styleResults.map((style: any, idx: number) => [
+      idx + 1,
+      style.name,
+      style.totalAdjustedWorkContent.toFixed(2),
+      style.cycleTime.toFixed(2),
+      style.operatorsRequired,
+      style.allocatedOutput,
+      Math.floor(60 / style.cycleTime)
+    ]);
+    
+    (pdf as any).autoTable({
+      startY: 80,
+      head: [['#', 'Style', 'Work Content (min)', 'Cycle Time (min)', 'Operators', 'Weekly Output', 'Units/Hour']],
+      body: styleData,
+      theme: 'striped',
+      headStyles: { fillColor: [41, 128, 185] }
+    });
+    
+    // Add bottleneck analysis
+    const bottleneckData = results.styleResults.map((style: any) => [
+      style.name,
+      style.bottleneckOperation.operation,
+      style.bottleneckOperation.type,
+      style.bottleneckOperation.sam.toFixed(3),
+      `${((style.bottleneckOperation.sam / style.cycleTime) * 100).toFixed(1)}%`
+    ]);
+    
+    (pdf as any).autoTable({
+      startY: (pdf as any).lastAutoTable.finalY + 10,
+      head: [['Style', 'Bottleneck Operation', 'Machine/Type', 'Time (min)', 'Cycle Time %']],
+      body: bottleneckData,
+      theme: 'striped',
+      headStyles: { fillColor: [231, 76, 60] }
+    });
+    
+    // Add recommendations
+    pdf.setFontSize(14);
+    pdf.text('Recommendations', 14, (pdf as any).lastAutoTable.finalY + 15);
+    
+    const recommendations = generateRecommendations();
+    let yPos = (pdf as any).lastAutoTable.finalY + 20;
+    
+    recommendations.forEach((rec, idx) => {
+      pdf.setFontSize(10);
+      pdf.text(`${idx+1}. ${rec}`, 14, yPos);
+      yPos += 6;
+    });
+    
+    // Save the PDF
+    pdf.save('Line_Balancing_Analysis.pdf');
+  };
+  
   return (
     <div className="p-4 bg-gray-50 min-h-screen">
       <h2 className="text-2xl font-bold mb-6">Enhanced Assembly Line Balancing Tool</h2>
@@ -540,7 +701,62 @@ export default function EnhancedLineBalancing3() {
                           <td className="p-2 border-t">{op.step}</td>
                           <td className="p-2 border-t">{op.operation}</td>
                           <td className="p-2 border-t">{op.type}</td>
-                          <td className="p-2 border-t text-right">{op.sam.toFixed(3)}</td>
+                          <td className="p-2 border-t text-right">
+                            <div className="flex items-center justify-end space-x-2">
+                              <input 
+                                type="number" 
+                                className="w-20 p-1 text-right border rounded"
+                                value={op.sam}
+                                step="0.001"
+                                min="0.001"
+                                onChange={(e) => {
+                                  const newValue = parseFloat(e.target.value) || 0;
+                                  const newOperations = [...styles[activeStyleIndex].operations];
+                                  newOperations[i] = {...newOperations[i], sam: newValue};
+                                  
+                                  const newStyles = [...styles];
+                                  newStyles[activeStyleIndex] = {
+                                    ...newStyles[activeStyleIndex],
+                                    operations: newOperations,
+                                    totalWorkContent: newOperations.reduce((sum, op) => sum + op.sam, 0)
+                                  };
+                                  
+                                  setStyles(newStyles);
+                                }}
+                              />
+                              
+                              {shiftsPerDay > 1 && selectiveOperations && (
+                                <div className="flex items-center pl-2">
+                                  <input
+                                    type="checkbox"
+                                    className="h-4 w-4 text-blue-600"
+                                    checked={
+                                      selectedOperations[activeStyleIndex] && 
+                                      selectedOperations[activeStyleIndex][op.step] || 
+                                      false
+                                    }
+                                    onChange={(e) => {
+                                      setSelectedOperations(prev => {
+                                        // Create a copy of the current state
+                                        const newSelected = {...prev};
+                                        
+                                        // Initialize style's operations if not exists
+                                        if (!newSelected[activeStyleIndex]) {
+                                          newSelected[activeStyleIndex] = {};
+                                        }
+                                        
+                                        // Set the operation selection state
+                                        newSelected[activeStyleIndex][op.step] = e.target.checked;
+                                        
+                                        return newSelected;
+                                      });
+                                    }}
+                                  />
+                                  <span className="ml-1 text-xs text-gray-500">Multi-shift</span>
+                                </div>
+                              )}
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -558,18 +774,90 @@ export default function EnhancedLineBalancing3() {
           <h3 className="text-lg font-semibold mb-3">Line Parameters</h3>
           
           <div className="space-y-4">
+            {/* Shift configuration */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Working Hours per Week
+                Shifts per Day
               </label>
-              <input
-                type="number"
-                value={totalHours}
-                onChange={(e) => setTotalHours(parseFloat(e.target.value) || 0)}
-                className="w-full p-2 border rounded"
-                min="1"
-                step="0.5"
-              />
+              <div className="flex border rounded overflow-hidden">
+                <button
+                  className={`flex-1 py-2 ${shiftsPerDay === 1 ? 'bg-blue-500 text-white' : 'bg-gray-100'}`}
+                  onClick={() => setShiftsPerDay(1)}
+                >
+                  1 Shift
+                </button>
+                <button
+                  className={`flex-1 py-2 ${shiftsPerDay === 2 ? 'bg-blue-500 text-white' : 'bg-gray-100'}`}
+                  onClick={() => setShiftsPerDay(2)}
+                >
+                  2 Shifts
+                </button>
+                <button
+                  className={`flex-1 py-2 ${shiftsPerDay === 3 ? 'bg-blue-500 text-white' : 'bg-gray-100'}`}
+                  onClick={() => setShiftsPerDay(3)}
+                >
+                  3 Shifts
+                </button>
+              </div>
+              
+              {shiftsPerDay > 1 && (
+                <div className="mt-3 space-y-2">
+                  <p className="text-xs text-gray-500">
+                    Hours per shift (5 days per week)
+                  </p>
+                  
+                  {Array.from({ length: shiftsPerDay }).map((_, idx) => (
+                    <div key={idx} className="flex items-center">
+                      <span className="w-24 text-sm">Shift {idx + 1}:</span>
+                      <input
+                        type="number"
+                        value={shiftHours[idx]}
+                        onChange={(e) => {
+                          const newHours = [...shiftHours];
+                          newHours[idx] = parseFloat(e.target.value) || 0;
+                          setShiftHours(newHours);
+                        }}
+                        className="w-16 p-1 border rounded"
+                        min="1"
+                        max="12"
+                        step="0.5"
+                      />
+                      <span className="ml-2 text-sm text-gray-500">hours</span>
+                    </div>
+                  ))}
+                  
+                  <div className="pt-2">
+                    <label className="flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectiveOperations}
+                        onChange={(e) => setSelectiveOperations(e.target.checked)}
+                        className="form-checkbox h-4 w-4 text-blue-600"
+                      />
+                      <span className="ml-2 text-sm">Enable selective operations for shifts</span>
+                    </label>
+                    <p className="text-xs text-gray-500 mt-1">
+                      When enabled, you can select which operations run in multiple shifts
+                    </p>
+                  </div>
+                </div>
+              )}
+              
+              {shiftsPerDay === 1 && (
+                <div className="mt-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Working Hours per Week
+                  </label>
+                  <input
+                    type="number"
+                    value={totalHours}
+                    onChange={(e) => setTotalHours(parseFloat(e.target.value) || 0)}
+                    className="w-full p-2 border rounded"
+                    min="1"
+                    step="0.5"
+                  />
+                </div>
+              )}
             </div>
             
             <div>
