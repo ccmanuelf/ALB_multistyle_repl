@@ -557,12 +557,8 @@ export default function EnhancedLineBalancing3() {
   
   // Calculate total daily hours based on shift configuration
   const calculateDailyHours = () => {
-    if (shiftsPerDay === 1) {
-      return 8; // Default single shift
-    } else {
-      // Sum the hours of active shifts
-      return shiftHours.slice(0, shiftsPerDay).reduce((sum, hours) => sum + hours, 0);
-    }
+    // Always use the actual hours from the shift configuration
+    return shiftHours.slice(0, shiftsPerDay).reduce((sum, hours) => sum + hours, 0);
   };
   
   // Constants for styling
@@ -897,32 +893,32 @@ export default function EnhancedLineBalancing3() {
                 </button>
               </div>
               
-              {shiftsPerDay > 1 && (
-                <div className="mt-3 space-y-2">
-                  <p className="text-xs text-gray-500">
-                    Hours per shift (5 days per week)
-                  </p>
-                  
-                  {Array.from({ length: shiftsPerDay }).map((_, idx) => (
-                    <div key={idx} className="flex items-center">
-                      <span className="w-24 text-sm">Shift {idx + 1}:</span>
-                      <input
-                        type="number"
-                        value={shiftHours[idx]}
-                        onChange={(e) => {
-                          const newHours = [...shiftHours];
-                          newHours[idx] = parseFloat(e.target.value) || 0;
-                          setShiftHours(newHours);
-                        }}
-                        className="w-16 p-1 border rounded"
-                        min="1"
-                        max="12"
-                        step="0.5"
-                      />
-                      <span className="ml-2 text-sm text-gray-500">hours</span>
-                    </div>
-                  ))}
-                  
+              <div className="mt-3 space-y-2">
+                <p className="text-xs text-gray-500">
+                  Hours per shift (5 days per week)
+                </p>
+                
+                {Array.from({ length: shiftsPerDay }).map((_, idx) => (
+                  <div key={idx} className="flex items-center">
+                    <span className="w-24 text-sm">Shift {idx + 1}:</span>
+                    <input
+                      type="number"
+                      value={shiftHours[idx]}
+                      onChange={(e) => {
+                        const newHours = [...shiftHours];
+                        newHours[idx] = parseFloat(e.target.value) || 0;
+                        setShiftHours(newHours);
+                      }}
+                      className="w-16 p-1 border rounded"
+                      min="1"
+                      max="12"
+                      step="0.5"
+                    />
+                    <span className="ml-2 text-sm text-gray-500">hours</span>
+                  </div>
+                ))}
+                
+                {shiftsPerDay > 1 && (
                   <div className="pt-2">
                     <label className="flex items-center cursor-pointer">
                       <input
@@ -937,8 +933,8 @@ export default function EnhancedLineBalancing3() {
                       When enabled, you can select which operations run in multiple shifts
                     </p>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
               
               {shiftsPerDay === 1 && (
                 <div className="mt-3">
