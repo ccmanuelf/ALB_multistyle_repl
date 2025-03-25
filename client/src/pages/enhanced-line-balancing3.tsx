@@ -504,7 +504,16 @@ export default function EnhancedLineBalancing3() {
     ];
   };
   
-  // Define a type for operator allocation
+  // Define interfaces for the operator allocation system
+  interface Operator {
+    id: number;
+    name: string;
+    skills: string[];
+    utilized: number; // Percentage of operator's time used (0-100)
+    workload: number; // Time allocated in minutes
+    operations: number[]; // Step numbers of operations assigned
+  }
+
   interface OperationAllocation {
     step: number;
     operation: string;
@@ -513,6 +522,7 @@ export default function EnhancedLineBalancing3() {
     operatorNumber: number;
     startTime: number;
     endTime: number;
+    isManuallyAssigned?: boolean; // Flag to indicate if this was manually assigned
   }
 
   // Calculate operator allocation for a specific style
