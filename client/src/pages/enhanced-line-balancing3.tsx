@@ -423,11 +423,22 @@ export default function EnhancedLineBalancing3() {
     ];
   };
   
+  // Define a type for operator allocation
+  interface OperationAllocation {
+    step: number;
+    operation: string;
+    type: string;
+    sam: number;
+    operatorNumber: number;
+    startTime: number;
+    endTime: number;
+  }
+
   // Calculate operator allocation for a specific style
-  const calculateOperatorAllocation = (style: any, cycleTime: number) => {
+  const calculateOperatorAllocation = (style: any, cycleTime: number): OperationAllocation[] => {
     if (!style || !style.operations) return [];
     
-    const operatorAllocation = [];
+    const operatorAllocation: OperationAllocation[] = [];
     let currentOperator = 1;
     let currentOperatorTime = 0;
     
