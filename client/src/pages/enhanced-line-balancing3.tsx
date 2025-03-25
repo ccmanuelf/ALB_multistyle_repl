@@ -555,6 +555,16 @@ export default function EnhancedLineBalancing3() {
     return Math.floor(60 / cycleTime);
   };
   
+  // Calculate total daily hours based on shift configuration
+  const calculateDailyHours = () => {
+    if (shiftsPerDay === 1) {
+      return 8; // Default single shift
+    } else {
+      // Sum the hours of active shifts
+      return shiftHours.slice(0, shiftsPerDay).reduce((sum, hours) => sum + hours, 0);
+    }
+  };
+  
   // Constants for styling
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
   
@@ -1475,9 +1485,9 @@ export default function EnhancedLineBalancing3() {
                     <span className="font-medium">{style.allocatedOutput} units/week</span>
                   </div>
                   <div className="flex justify-between text-sm mb-1">
-                    <span>Daily Output (8hr):</span>
+                    <span>Daily Output ({calculateDailyHours()}hr):</span>
                     <span className="font-medium">
-                      {Math.round(style.allocatedOutput / (totalHours / 8))} units/day
+                      {Math.round(style.allocatedOutput / 5)} units/day
                     </span>
                   </div>
                 </div>
