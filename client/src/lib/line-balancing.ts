@@ -5,6 +5,8 @@ export interface OperationData {
   type: string;
   sam: number;
   isManual: boolean;
+  skillLevel: number; // Skill level as percentage (0-100)
+  originalSam?: number; // To store the original SAM before skill level adjustment
 }
 
 // Types for movement time data

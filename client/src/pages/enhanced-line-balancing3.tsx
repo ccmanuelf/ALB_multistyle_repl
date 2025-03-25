@@ -191,13 +191,18 @@ export default function EnhancedLineBalancing3() {
         skipEmptyLines: true,
         complete: (results) => {
           // Process parsed CSV data
-          const styleOperations = results.data.map((row: any, index: number) => ({
-            step: parseInt(row.Step) || index + 1,
-            operation: row.Operation || `Operation ${index + 1}`,
-            type: row.Type || 'Unknown',
-            sam: parseFloat(row.SAM) || 0,
-            isManual: row.Type === 'Manual'
-          })).filter((op: any) => !isNaN(op.sam) && op.sam > 0);
+          const styleOperations = results.data.map((row: any, index: number) => {
+            const sam = parseFloat(row.SAM) || 0;
+            return {
+              step: parseInt(row.Step) || index + 1,
+              operation: row.Operation || `Operation ${index + 1}`,
+              type: row.Type || 'Unknown',
+              sam: sam,
+              originalSam: sam, // Store original SAM
+              skillLevel: 100, // Default to 100% skill level
+              isManual: row.Type === 'Manual'
+            };
+          }).filter((op: any) => !isNaN(op.sam) && op.sam > 0);
           
           // Add new style
           const styleName = file.name.replace(/\.[^/.]+$/, ""); // Remove file extension
@@ -785,6 +790,7 @@ export default function EnhancedLineBalancing3() {
                         <th className="p-2 text-left">Step</th>
                         <th className="p-2 text-left">Operation</th>
                         <th className="p-2 text-left">Type</th>
+                        <th className="p-2 text-center">Skill Level (%)</th>
                         <th className="p-2 text-right">SAM (min)</th>
                       </tr>
                     </thead>
@@ -794,6 +800,39 @@ export default function EnhancedLineBalancing3() {
                           <td className="p-2 border-t">{op.step}</td>
                           <td className="p-2 border-t">{op.operation}</td>
                           <td className="p-2 border-t">{op.type}</td>
+                          <td className="p-2 border-t text-center">
+                            <input 
+                              type="number" 
+                              className="w-16 p-1 text-center border rounded"
+                              value={op.skillLevel || 100}
+                              step="5"
+                              min="10"
+                              max="100"
+                              onChange={(e) => {
+                                const newSkillLevel = parseFloat(e.target.value) || 100;
+                                const newOperations = [...styles[activeStyleIndex].operations];
+                                // Calculate the new SAM based on original SAM / skill level
+                                const originalSam = op.originalSam || op.sam;
+                                const newSam = originalSam / (newSkillLevel / 100);
+                                
+                                newOperations[i] = {
+                                  ...newOperations[i], 
+                                  skillLevel: newSkillLevel,
+                                  sam: Number(newSam.toFixed(3)), // Round to 3 decimal places
+                                  originalSam: originalSam
+                                };
+                                
+                                const newStyles = [...styles];
+                                newStyles[activeStyleIndex] = {
+                                  ...newStyles[activeStyleIndex],
+                                  operations: newOperations,
+                                  totalWorkContent: newOperations.reduce((sum, op) => sum + op.sam, 0)
+                                };
+                                
+                                setStyles(newStyles);
+                              }}
+                            />
+                          </td>
                           <td className="p-2 border-t text-right">
                             <div className="flex items-center justify-end space-x-2">
                               <input 
@@ -805,7 +844,11 @@ export default function EnhancedLineBalancing3() {
                                 onChange={(e) => {
                                   const newValue = parseFloat(e.target.value) || 0;
                                   const newOperations = [...styles[activeStyleIndex].operations];
-                                  newOperations[i] = {...newOperations[i], sam: newValue};
+                                  newOperations[i] = {
+                                    ...newOperations[i], 
+                                    sam: newValue,
+                                    originalSam: newValue * (op.skillLevel / 100) // Update original SAM
+                                  };
                                   
                                   const newStyles = [...styles];
                                   newStyles[activeStyleIndex] = {
