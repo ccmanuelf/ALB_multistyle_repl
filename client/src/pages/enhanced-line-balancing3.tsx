@@ -1842,6 +1842,118 @@ export default function EnhancedLineBalancing3() {
                     </div>
                   </div>
                   
+                  {/* Manual Operation Assignment Section */}
+                  <div className="mt-6 pt-4 border-t">
+                    <h4 className="text-md font-semibold mb-3">Operator Assignment Mode</h4>
+                    <div className="flex items-center space-x-4 mb-4">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="radio"
+                          id="automatic-mode"
+                          name="assignment-mode"
+                          checked={assignmentMode === 'automatic'}
+                          onChange={() => setAssignmentMode('automatic')}
+                          className="h-4 w-4 text-blue-600"
+                        />
+                        <label htmlFor="automatic-mode" className="text-sm">Automatic Assignment</label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="radio"
+                          id="manual-mode"
+                          name="assignment-mode"
+                          checked={assignmentMode === 'manual'}
+                          onChange={() => setAssignmentMode('manual')}
+                          className="h-4 w-4 text-blue-600"
+                        />
+                        <label htmlFor="manual-mode" className="text-sm">Manual Assignment</label>
+                      </div>
+                    </div>
+                    
+                    {assignmentMode === 'manual' && results && results.styleResults && activeStyleIndex !== null && (
+                      <div className="bg-gray-50 p-4 rounded-md border mb-4">
+                        <h5 className="font-medium mb-2">Manual Operation Assignment</h5>
+                        <p className="text-sm text-gray-600 mb-4">
+                          Assign each operation to a specific operator by selecting the operator number below.
+                        </p>
+                        
+                        <div className="max-h-80 overflow-y-auto">
+                          <table className="min-w-full table-auto text-sm">
+                            <thead className="bg-gray-100">
+                              <tr>
+                                <th className="p-2 text-left">Step</th>
+                                <th className="p-2 text-left">Operation</th>
+                                <th className="p-2 text-left">Type</th>
+                                <th className="p-2 text-right">SAM (min)</th>
+                                <th className="p-2 text-center">Assigned Operator</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {results.styleResults[activeStyleIndex].operations.map((op: any, i: number) => {
+                                const styleIdx = activeStyleIndex.toString();
+                                const opStep = op.step.toString();
+                                const currentAssignment = 
+                                  manualAssignments[styleIdx] && 
+                                  manualAssignments[styleIdx][opStep] ? 
+                                  manualAssignments[styleIdx][opStep] : 1;
+                                
+                                return (
+                                  <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                                    <td className="p-2 border-t">{op.step}</td>
+                                    <td className="p-2 border-t">{op.operation}</td>
+                                    <td className="p-2 border-t">{op.type}</td>
+                                    <td className="p-2 border-t text-right">{op.sam.toFixed(3)}</td>
+                                    <td className="p-2 border-t text-center">
+                                      <select
+                                        value={currentAssignment}
+                                        onChange={(e) => {
+                                          const operatorNumber = parseInt(e.target.value);
+                                          setManualAssignments(prev => {
+                                            const newAssignments = {...prev};
+                                            if (!newAssignments[styleIdx]) {
+                                              newAssignments[styleIdx] = {};
+                                            }
+                                            newAssignments[styleIdx][opStep] = operatorNumber;
+                                            return newAssignments;
+                                          });
+                                        }}
+                                        className="p-1 border rounded"
+                                      >
+                                        {Array.from({length: results.styleResults[activeStyleIndex].operatorsRequired + 2}, (_, i) => i + 1).map(num => (
+                                          <option key={num} value={num}>
+                                            Operator {num}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                        
+                        {allocationComparison && (
+                          <div className="mt-4 p-3 bg-blue-50 rounded border border-blue-100">
+                            <h5 className="font-medium mb-2">Assignment Comparison</h5>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <p className="text-sm font-medium">Automatic Assignment:</p>
+                                <p className="text-sm">Efficiency: {allocationComparison.automatic.efficiency.toFixed(1)}%</p>
+                                <p className="text-sm">Balance Score: {allocationComparison.automatic.workloadBalance.toFixed(1)}/100</p>
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium">Manual Assignment:</p>
+                                <p className="text-sm">Efficiency: {allocationComparison.manual.efficiency.toFixed(1)}%</p>
+                                <p className="text-sm">Balance Score: {allocationComparison.manual.workloadBalance.toFixed(1)}/100</p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  
                   {/* Operator Workload Visualization */}
                   <div className="mt-6 pt-4 border-t">
                     <h4 className="text-md font-semibold mb-3">Operator Workload Analysis</h4>
