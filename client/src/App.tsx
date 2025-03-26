@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import NotFound from "@/pages/not-found";
 import EnhancedLineBalancing3 from "@/pages/enhanced-line-balancing3";
 import EnhancedLineBalancingMultiStyle from "@/pages/enhanced-line-balancing-multi-style";
+import Documentation from "@/pages/documentation";
 import Navigation from "@/components/navigation";
 
 function Router() {
@@ -16,6 +17,8 @@ function Router() {
       <Route path="/line-balancing" component={EnhancedLineBalancing3} />
       {/* Add multi-style line balancing route */}
       <Route path="/multi-style" component={EnhancedLineBalancingMultiStyle} />
+      {/* Documentation route */}
+      <Route path="/documentation" component={Documentation} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>

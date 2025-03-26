@@ -21,6 +21,11 @@ export default function Navigation() {
               Multi-Style Line Balancing
             </span>
           </Link>
+          <Link href="/documentation">
+            <span className={`font-medium cursor-pointer ${location === '/documentation' ? 'text-blue-700 underline' : 'text-gray-600 hover:text-blue-700'}`}>
+              Documentation
+            </span>
+          </Link>
         </nav>
       </div>
     </div>
