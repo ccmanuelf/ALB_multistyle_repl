@@ -221,6 +221,7 @@ export default function EnhancedLineBalancing3() {
   const [operators, setOperators] = useState<Operator[]>([]);
   const [manualAssignments, setManualAssignments] = useState<{[styleIndex: string]: {[operationStep: string]: number}}>({});
   const [assignmentMode, setAssignmentMode] = useState<'automatic' | 'manual'>('automatic');
+  const [combineStyles, setCombineStyles] = useState<boolean>(false);
   const [allocationComparison, setAllocationComparison] = useState<{
     automatic: {efficiency: number, workloadBalance: number},
     manual: {efficiency: number, workloadBalance: number}
@@ -1963,6 +1964,33 @@ export default function EnhancedLineBalancing3() {
                         <label htmlFor="manual-mode" className="text-sm">Manual Assignment</label>
                       </div>
                     </div>
+                    
+                    {/* Multiple Style Allocation Toggle */}
+                    {styles.length > 1 && (
+                      <div className="border-t pt-4 mt-4">
+                        <h4 className="text-md font-semibold mb-3">Multiple Style Allocation</h4>
+                        <div className="flex items-center space-x-2 mb-4">
+                          <input
+                            type="checkbox"
+                            id="combine-styles"
+                            checked={combineStyles}
+                            onChange={(e) => setCombineStyles(e.target.checked)}
+                            className="h-4 w-4 text-blue-600 rounded"
+                          />
+                          <label htmlFor="combine-styles" className="text-sm">
+                            Combine all styles for operator allocation
+                          </label>
+                        </div>
+                        <div className="text-xs text-gray-600 mb-4 bg-blue-50 p-2 rounded">
+                          <p>When enabled, operations from all styles will be combined for allocation. This is useful when:</p>
+                          <ul className="list-disc pl-5 mt-1">
+                            <li>Multiple styles share common operations</li>
+                            <li>The same operators work on multiple styles</li>
+                            <li>You want to balance workload across all production styles</li>
+                          </ul>
+                        </div>
+                      </div>
+                    )}
                     
                     {assignmentMode === 'manual' && results && results.styleResults && activeStyleIndex !== null && (
                       <div className="bg-gray-50 p-4 rounded-md border mb-4">
