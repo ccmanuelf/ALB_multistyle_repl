@@ -7,6 +7,7 @@ import EnhancedLineBalancing3 from "@/pages/enhanced-line-balancing3";
 import EnhancedLineBalancingMultiStyle from "@/pages/enhanced-line-balancing-multi-style";
 import Documentation from "@/pages/documentation";
 import Navigation from "@/components/navigation";
+import { HelpBubble } from "@/components/help-bubble";
 
 function Router() {
   return (
@@ -33,6 +34,7 @@ function App() {
         <div className="container mx-auto">
           <Router />
         </div>
+        <HelpBubble />
       </div>
       <Toaster />
     </QueryClientProvider>
