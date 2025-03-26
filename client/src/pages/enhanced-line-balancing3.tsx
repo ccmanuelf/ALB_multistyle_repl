@@ -12,6 +12,24 @@ const OPERATOR_COLORS = [
   '#d946ef', '#f43f5e', '#0284c7', '#4f46e5', '#be123c', '#166534'
 ];
 
+// Utility functions for combined style visualization
+const getOperationLabel = (op: any) => {
+  if (op.styleName) {
+    // In combined mode, show the style identifier with operation step
+    return `${op.styleName.substring(0, 3)}-${op.step}`;
+  }
+  // In single style mode, just show the step number
+  return op.step;
+};
+
+const getOperationTooltip = (op: any) => {
+  let tooltipText = `${op.operation} (${op.sam.toFixed(3)} min)`;
+  if (op.styleName) {
+    tooltipText = `${op.styleName}: ${tooltipText}`;
+  }
+  return tooltipText;
+};
+
 // Function to generate recommendations based on line balancing results
 // Compare automatic versus manual allocation efficiency
 function compareAllocations(styleResult: any) {
