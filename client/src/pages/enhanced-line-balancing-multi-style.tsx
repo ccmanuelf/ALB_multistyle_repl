@@ -64,6 +64,7 @@ export default function EnhancedLineBalancingMultiStyle() {
   
   // State for results
   const [results, setResults] = useState<any>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
   
   // State for operator management
   const [operators, setOperators] = useState<Operator[]>([]);
