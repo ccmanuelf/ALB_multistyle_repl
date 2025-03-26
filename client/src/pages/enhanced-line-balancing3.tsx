@@ -2030,7 +2030,7 @@ export default function EnhancedLineBalancing3() {
                         {allocationComparison && (
                           <div className="mt-4 p-3 bg-blue-50 rounded border border-blue-100">
                             <h5 className="font-medium mb-2">Assignment Comparison</h5>
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-2 gap-4 mb-3">
                               <div>
                                 <p className="text-sm font-medium">Automatic Assignment:</p>
                                 <p className="text-sm">Efficiency: {allocationComparison.automatic.efficiency.toFixed(1)}%</p>
@@ -2040,6 +2040,133 @@ export default function EnhancedLineBalancing3() {
                                 <p className="text-sm font-medium">Manual Assignment:</p>
                                 <p className="text-sm">Efficiency: {allocationComparison.manual.efficiency.toFixed(1)}%</p>
                                 <p className="text-sm">Balance Score: {allocationComparison.manual.workloadBalance.toFixed(1)}/100</p>
+                              </div>
+                            </div>
+                            
+                            {/* Visual comparison section */}
+                            <div className="mt-3 pt-3 border-t border-blue-200">
+                              <h5 className="font-medium mb-2">Visual Operation Allocation Comparison</h5>
+                              
+                              {/* Automatic allocation chart */}
+                              <div className="mb-4">
+                                <p className="text-sm font-medium mb-2">Automatic Allocation:</p>
+                                <div className="relative h-[160px] bg-gray-50 border rounded p-2 overflow-hidden">
+                                  {(() => {
+                                    const cycleTime = results.styleResults[activeStyleIndex].cycleTime;
+                                    const allocations = calculateOperatorAllocation(
+                                      results.styleResults[activeStyleIndex], 
+                                      cycleTime,
+                                      false
+                                    );
+                                    
+                                    // Group allocations by operator
+                                    const operatorGroups = {};
+                                    allocations.forEach(alloc => {
+                                      if (!operatorGroups[alloc.operatorNumber]) {
+                                        operatorGroups[alloc.operatorNumber] = [];
+                                      }
+                                      operatorGroups[alloc.operatorNumber].push(alloc);
+                                    });
+                                    
+                                    return (
+                                      <>
+                                        <div className="absolute top-0 left-0 w-full h-full">
+                                          {/* Time scale markers */}
+                                          {Array.from({length: Math.ceil(cycleTime)+1}, (_, i) => (
+                                            <div key={i} className="absolute border-l border-gray-200 h-full"
+                                                style={{ left: `${(i / cycleTime) * 100}%` }}>
+                                              <div className="text-[10px] text-gray-400">{i.toFixed(1)}</div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                        
+                                        {Object.entries(operatorGroups).map(([opNumber, ops]: [string, any[]]) => (
+                                          <div key={opNumber} className="relative h-8 mb-2 flex items-center">
+                                            <div className="w-16 text-xs font-medium">Operator {opNumber}:</div>
+                                            <div className="flex-1 relative">
+                                              {ops.map((op, i) => (
+                                                <div
+                                                  key={i}
+                                                  className="absolute h-7 rounded flex items-center justify-center text-xs text-white font-medium overflow-hidden"
+                                                  style={{
+                                                    left: `${(op.startTime / cycleTime) * 100}%`,
+                                                    width: `${(op.sam / cycleTime) * 100}%`,
+                                                    backgroundColor: OPERATOR_COLORS[(parseInt(opNumber) - 1) % OPERATOR_COLORS.length],
+                                                    minWidth: '12px'
+                                                  }}
+                                                  title={`${op.operation} (${op.sam.toFixed(3)} min)`}
+                                                >
+                                                  <span className="truncate px-1">{op.step}</span>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </>
+                                    );
+                                  })()}
+                                </div>
+                              </div>
+                              
+                              {/* Manual allocation chart */}
+                              <div>
+                                <p className="text-sm font-medium mb-2">Manual Allocation:</p>
+                                <div className="relative h-[160px] bg-gray-50 border rounded p-2 overflow-hidden">
+                                  {(() => {
+                                    const cycleTime = results.styleResults[activeStyleIndex].cycleTime;
+                                    const allocations = calculateOperatorAllocation(
+                                      results.styleResults[activeStyleIndex], 
+                                      cycleTime,
+                                      true
+                                    );
+                                    
+                                    // Group allocations by operator
+                                    const operatorGroups = {};
+                                    allocations.forEach(alloc => {
+                                      if (!operatorGroups[alloc.operatorNumber]) {
+                                        operatorGroups[alloc.operatorNumber] = [];
+                                      }
+                                      operatorGroups[alloc.operatorNumber].push(alloc);
+                                    });
+                                    
+                                    return (
+                                      <>
+                                        <div className="absolute top-0 left-0 w-full h-full">
+                                          {/* Time scale markers */}
+                                          {Array.from({length: Math.ceil(cycleTime)+1}, (_, i) => (
+                                            <div key={i} className="absolute border-l border-gray-200 h-full"
+                                                style={{ left: `${(i / cycleTime) * 100}%` }}>
+                                              <div className="text-[10px] text-gray-400">{i.toFixed(1)}</div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                        
+                                        {Object.entries(operatorGroups).map(([opNumber, ops]: [string, any[]]) => (
+                                          <div key={opNumber} className="relative h-8 mb-2 flex items-center">
+                                            <div className="w-16 text-xs font-medium">Operator {opNumber}:</div>
+                                            <div className="flex-1 relative">
+                                              {ops.map((op, i) => (
+                                                <div
+                                                  key={i}
+                                                  className="absolute h-7 rounded flex items-center justify-center text-xs text-white font-medium overflow-hidden"
+                                                  style={{
+                                                    left: `${(op.startTime / cycleTime) * 100}%`,
+                                                    width: `${(op.sam / cycleTime) * 100}%`,
+                                                    backgroundColor: OPERATOR_COLORS[(parseInt(opNumber) - 1) % OPERATOR_COLORS.length],
+                                                    minWidth: '12px'
+                                                  }}
+                                                  title={`${op.operation} (${op.sam.toFixed(3)} min)`}
+                                                >
+                                                  <span className="truncate px-1">{op.step}</span>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </>
+                                    );
+                                  })()}
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -2056,107 +2183,232 @@ export default function EnhancedLineBalancing3() {
                       balanced workloads close to 100% utilization.
                     </p>
                     
-                    {/* Workload bars */}
-                    <div className="space-y-3 mb-6">
-                      {calculateOperatorWorkload(
-                        calculateOperatorAllocation(
-                          results.styleResults[activeStyleIndex],
-                          results.styleResults[activeStyleIndex].cycleTime
-                        ),
-                        results.styleResults[activeStyleIndex].cycleTime
-                      ).map((operator, idx) => {
-                        const utilizationPercentage = operator.utilized;
-                        
-                        // Determine color based on utilization
-                        let barColor, textColor;
-                        if (utilizationPercentage < 70) {
-                          barColor = 'bg-blue-400'; // Underutilized
-                          textColor = 'text-blue-700';
-                        } else if (utilizationPercentage < 90) {
-                          barColor = 'bg-green-500'; // Well utilized
-                          textColor = 'text-green-700';
-                        } else {
-                          barColor = 'bg-amber-500'; // Fully/Over utilized
-                          textColor = 'text-amber-700';
-                        }
-                        
-                        return (
-                          <div key={idx} className="flex flex-col">
-                            <div className="flex justify-between mb-1 items-center">
-                              <div className="flex items-center">
-                                <div 
-                                  className="w-3 h-3 rounded-full mr-2"
-                                  style={{ backgroundColor: OPERATOR_COLORS[idx % OPERATOR_COLORS.length] }}
-                                ></div>
-                                <span className="text-sm font-medium">{operator.name}</span>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <span className={`text-xs font-semibold ${textColor}`}>
-                                  {utilizationPercentage.toFixed(1)}% utilized
-                                </span>
-                                <span className="text-xs text-gray-500">
-                                  ({operator.workload.toFixed(2)} min)
-                                </span>
-                              </div>
-                            </div>
-                            
-                            <div className="w-full bg-gray-200 rounded-full h-2.5">
-                              <div
-                                className={`${barColor} h-2.5 rounded-full transition-all duration-500`}
-                                style={{ width: `${Math.min(100, utilizationPercentage)}%` }}
-                              ></div>
-                            </div>
-                            
-                            <div className="text-xs text-gray-500 mt-1">
-                              <span>Assigned steps: {operator.operations.join(', ')}</span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                    {/* Display mode selection */}
+                    {assignmentMode === 'manual' && (
+                      <div className="flex items-center space-x-4 mb-4">
+                        <div className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                          Showing both allocation methods for comparison
+                        </div>
+                      </div>
+                    )}
                     
-                    {/* Summary stats */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-3 bg-gray-50 rounded-lg">
-                      {(() => {
-                        const operators = calculateOperatorWorkload(
+                    {/* Automatic workload bars */}
+                    <div className="mb-6">
+                      <h5 className="text-sm font-medium mb-3">
+                        {assignmentMode === 'manual' ? 'Automatic Assignment Workload:' : 'Current Workload:'}
+                      </h5>
+                      <div className="space-y-3">
+                        {calculateOperatorWorkload(
                           calculateOperatorAllocation(
                             results.styleResults[activeStyleIndex],
-                            results.styleResults[activeStyleIndex].cycleTime
+                            results.styleResults[activeStyleIndex].cycleTime,
+                            false
                           ),
                           results.styleResults[activeStyleIndex].cycleTime
-                        );
-                        
-                        // Calculate average utilization
-                        const avgUtilization = operators.reduce((sum, op) => sum + op.utilized, 0) / operators.length;
-                        
-                        // Find most and least utilized operators
-                        const mostUtilized = operators.reduce((max, op) => op.utilized > max.utilized ? op : max, operators[0]);
-                        const leastUtilized = operators.reduce((min, op) => op.utilized < min.utilized ? op : min, operators[0]);
-                        
-                        // Calculate utilization variance (as a basic workload balance metric)
-                        const utilizationVariance = operators.reduce((sum, op) => sum + Math.pow(op.utilized - avgUtilization, 2), 0) / operators.length;
-                        
-                        return (
-                          <>
-                            <div className="text-center">
-                              <div className="text-sm font-medium text-gray-500">Average Utilization</div>
-                              <div className="text-xl font-semibold">{avgUtilization.toFixed(1)}%</div>
-                            </div>
-                            <div className="text-center">
-                              <div className="text-sm font-medium text-gray-500">Workload Imbalance</div>
-                              <div className="text-xl font-semibold">{Math.sqrt(utilizationVariance).toFixed(1)}%</div>
-                              <div className="text-xs text-gray-400">(std. deviation)</div>
-                            </div>
-                            <div className="text-center">
-                              <div className="text-sm font-medium text-gray-500">Utilization Range</div>
-                              <div className="text-xl font-semibold">
-                                {leastUtilized.utilized.toFixed(1)}% - {mostUtilized.utilized.toFixed(1)}%
+                        ).map((operator, idx) => {
+                          const utilizationPercentage = operator.utilized;
+                          
+                          // Determine color based on utilization
+                          let barColor, textColor;
+                          if (utilizationPercentage < 70) {
+                            barColor = 'bg-blue-400'; // Underutilized
+                            textColor = 'text-blue-700';
+                          } else if (utilizationPercentage < 90) {
+                            barColor = 'bg-green-500'; // Well utilized
+                            textColor = 'text-green-700';
+                          } else {
+                            barColor = 'bg-amber-500'; // Fully/Over utilized
+                            textColor = 'text-amber-700';
+                          }
+                          
+                          return (
+                            <div key={idx} className="flex flex-col">
+                              <div className="flex justify-between mb-1 items-center">
+                                <div className="flex items-center">
+                                  <div 
+                                    className="w-3 h-3 rounded-full mr-2"
+                                    style={{ backgroundColor: OPERATOR_COLORS[idx % OPERATOR_COLORS.length] }}
+                                  ></div>
+                                  <span className="text-sm font-medium">{operator.name}</span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <span className={`text-xs font-semibold ${textColor}`}>
+                                    {utilizationPercentage.toFixed(1)}% utilized
+                                  </span>
+                                  <span className="text-xs text-gray-500">
+                                    ({operator.workload.toFixed(2)} min)
+                                  </span>
+                                </div>
+                              </div>
+                              
+                              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                                <div
+                                  className={`${barColor} h-2.5 rounded-full transition-all duration-500`}
+                                  style={{ width: `${Math.min(100, utilizationPercentage)}%` }}
+                                ></div>
+                              </div>
+                              
+                              <div className="text-xs text-gray-500 mt-1">
+                                <span>Assigned steps: {operator.operations.join(', ')}</span>
                               </div>
                             </div>
-                          </>
-                        );
-                      })()}
+                          );
+                        })}
+                      </div>
+                      
+                      {/* Automatic summary stats */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-3 bg-gray-50 rounded-lg mt-4">
+                        {(() => {
+                          const operators = calculateOperatorWorkload(
+                            calculateOperatorAllocation(
+                              results.styleResults[activeStyleIndex],
+                              results.styleResults[activeStyleIndex].cycleTime,
+                              false
+                            ),
+                            results.styleResults[activeStyleIndex].cycleTime
+                          );
+                          
+                          // Calculate average utilization
+                          const avgUtilization = operators.reduce((sum, op) => sum + op.utilized, 0) / operators.length;
+                          
+                          // Find most and least utilized operators
+                          const mostUtilized = operators.reduce((max, op) => op.utilized > max.utilized ? op : max, operators[0]);
+                          const leastUtilized = operators.reduce((min, op) => op.utilized < min.utilized ? op : min, operators[0]);
+                          
+                          // Calculate utilization variance (as a basic workload balance metric)
+                          const utilizationVariance = operators.reduce((sum, op) => sum + Math.pow(op.utilized - avgUtilization, 2), 0) / operators.length;
+                          
+                          return (
+                            <>
+                              <div className="text-center">
+                                <div className="text-sm font-medium text-gray-500">Average Utilization</div>
+                                <div className="text-xl font-semibold">{avgUtilization.toFixed(1)}%</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-sm font-medium text-gray-500">Workload Imbalance</div>
+                                <div className="text-xl font-semibold">{Math.sqrt(utilizationVariance).toFixed(1)}%</div>
+                                <div className="text-xs text-gray-400">(std. deviation)</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-sm font-medium text-gray-500">Utilization Range</div>
+                                <div className="text-xl font-semibold">
+                                  {leastUtilized.utilized.toFixed(1)}% - {mostUtilized.utilized.toFixed(1)}%
+                                </div>
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </div>
                     </div>
+                    
+                    {/* Manual workload bars - only shown in manual mode */}
+                    {assignmentMode === 'manual' && (
+                      <div className="mt-8 pt-6 border-t">
+                        <h5 className="text-sm font-medium mb-3">Manual Assignment Workload:</h5>
+                        <div className="space-y-3">
+                          {calculateOperatorWorkload(
+                            calculateOperatorAllocation(
+                              results.styleResults[activeStyleIndex],
+                              results.styleResults[activeStyleIndex].cycleTime,
+                              true
+                            ),
+                            results.styleResults[activeStyleIndex].cycleTime
+                          ).map((operator, idx) => {
+                            const utilizationPercentage = operator.utilized;
+                            
+                            // Determine color based on utilization
+                            let barColor, textColor;
+                            if (utilizationPercentage < 70) {
+                              barColor = 'bg-blue-400'; // Underutilized
+                              textColor = 'text-blue-700';
+                            } else if (utilizationPercentage < 90) {
+                              barColor = 'bg-green-500'; // Well utilized
+                              textColor = 'text-green-700';
+                            } else {
+                              barColor = 'bg-amber-500'; // Fully/Over utilized
+                              textColor = 'text-amber-700';
+                            }
+                            
+                            return (
+                              <div key={idx} className="flex flex-col">
+                                <div className="flex justify-between mb-1 items-center">
+                                  <div className="flex items-center">
+                                    <div 
+                                      className="w-3 h-3 rounded-full mr-2"
+                                      style={{ backgroundColor: OPERATOR_COLORS[idx % OPERATOR_COLORS.length] }}
+                                    ></div>
+                                    <span className="text-sm font-medium">{operator.name}</span>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <span className={`text-xs font-semibold ${textColor}`}>
+                                      {utilizationPercentage.toFixed(1)}% utilized
+                                    </span>
+                                    <span className="text-xs text-gray-500">
+                                      ({operator.workload.toFixed(2)} min)
+                                    </span>
+                                  </div>
+                                </div>
+                                
+                                <div className="w-full bg-gray-200 rounded-full h-2.5">
+                                  <div
+                                    className={`${barColor} h-2.5 rounded-full transition-all duration-500`}
+                                    style={{ width: `${Math.min(100, utilizationPercentage)}%` }}
+                                  ></div>
+                                </div>
+                                
+                                <div className="text-xs text-gray-500 mt-1">
+                                  <span>Assigned steps: {operator.operations.join(', ')}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      
+                        {/* Manual summary stats */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-3 bg-gray-50 rounded-lg mt-4">
+                          {(() => {
+                            const operators = calculateOperatorWorkload(
+                              calculateOperatorAllocation(
+                                results.styleResults[activeStyleIndex],
+                                results.styleResults[activeStyleIndex].cycleTime,
+                                true
+                              ),
+                              results.styleResults[activeStyleIndex].cycleTime
+                            );
+                            
+                            // Calculate average utilization
+                            const avgUtilization = operators.reduce((sum, op) => sum + op.utilized, 0) / operators.length;
+                            
+                            // Find most and least utilized operators
+                            const mostUtilized = operators.reduce((max, op) => op.utilized > max.utilized ? op : max, operators[0]);
+                            const leastUtilized = operators.reduce((min, op) => op.utilized < min.utilized ? op : min, operators[0]);
+                            
+                            // Calculate utilization variance
+                            const utilizationVariance = operators.reduce((sum, op) => sum + Math.pow(op.utilized - avgUtilization, 2), 0) / operators.length;
+                            
+                            return (
+                              <>
+                                <div className="text-center">
+                                  <div className="text-sm font-medium text-gray-500">Average Utilization</div>
+                                  <div className="text-xl font-semibold">{avgUtilization.toFixed(1)}%</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-sm font-medium text-gray-500">Workload Imbalance</div>
+                                  <div className="text-xl font-semibold">{Math.sqrt(utilizationVariance).toFixed(1)}%</div>
+                                  <div className="text-xs text-gray-400">(std. deviation)</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-sm font-medium text-gray-500">Utilization Range</div>
+                                  <div className="text-xl font-semibold">
+                                    {leastUtilized.utilized.toFixed(1)}% - {mostUtilized.utilized.toFixed(1)}%
+                                  </div>
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </>
               )}
