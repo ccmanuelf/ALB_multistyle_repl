@@ -246,6 +246,8 @@ export default function EnhancedLineBalancing3() {
     startTime: number;
     endTime: number;
     isManuallyAssigned?: boolean; // Flag to indicate if this was manually assigned
+    styleName?: string; // The name of the style this operation belongs to (for combined mode)
+    styleIndex?: number; // The index of the style this operation belongs to (for combined mode)
   }
   
   // Initialize operators based on calculation results
@@ -266,8 +268,128 @@ export default function EnhancedLineBalancing3() {
     return newOperators;
   }, []);
   
+  // Helper function to combine operations from multiple styles
+  const getCombinedOperations = (): {
+    operations: any[], 
+    styleMap: {[opIndex: number]: number}, // Maps operation index to style index
+    stepMap: {[opIndex: number]: number}  // Maps operation index to original step
+  } => {
+    const combinedOperations: any[] = [];
+    const styleMap: {[opIndex: number]: number} = {}; // To track which style an operation came from
+    const stepMap: {[opIndex: number]: number} = {};  // To track original step number
+    
+    styles.forEach((style, styleIdx) => {
+      if (style.operations) {
+        style.operations.forEach(op => {
+          const opIndex = combinedOperations.length;
+          combinedOperations.push({
+            ...op,
+            styleName: style.name, // Add style name for reference
+            styleIndex: styleIdx,  // Add style index for reference
+          });
+          styleMap[opIndex] = styleIdx;
+          stepMap[opIndex] = op.step;
+        });
+      }
+    });
+    
+    // Sort all operations by type and SAM
+    combinedOperations.sort((a, b) => {
+      // First group by operation type
+      if (a.type !== b.type) {
+        return a.type.localeCompare(b.type);
+      }
+      // Then sort by SAM (descending)
+      return b.sam - a.sam;
+    });
+    
+    return { operations: combinedOperations, styleMap, stepMap };
+  };
+
   // Calculate operator allocation based on style and cycle time
   const calculateOperatorAllocation = (style: any, cycleTime: number, useManualAssignment = false): OperationAllocation[] => {
+    // Check if we're using combined style mode and have multiple styles
+    if (combineStyles && styles.length > 1 && !style.isCombined) {
+      // Get combined operations from all styles
+      const { operations, styleMap, stepMap } = getCombinedOperations();
+      const result: OperationAllocation[] = [];
+      let currentOperator = 1;
+      let currentTime = 0;
+      
+      // Now allocate the combined operations
+      for (let i = 0; i < operations.length; i++) {
+        const op = operations[i];
+        const styleIdx = styleMap[i];
+        const originalStep = stepMap[i];
+        
+        // Check if we have a manual assignment for this operation
+        if (useManualAssignment && manualAssignments[styleIdx] && 
+            manualAssignments[styleIdx][originalStep]) {
+          // Use manually assigned operator
+          const assignedOperator = manualAssignments[styleIdx][originalStep];
+          result.push({
+            step: originalStep,
+            operation: op.operation,
+            type: op.type,
+            sam: op.sam,
+            operatorNumber: assignedOperator,
+            startTime: 0, // Will be calculated later
+            endTime: op.sam,
+            isManuallyAssigned: true,
+            styleName: op.styleName,
+            styleIndex: styleIdx
+          });
+        } else {
+          // Use automatic allocation
+          if (currentTime + op.sam > cycleTime) {
+            // Move to next operator
+            currentOperator++;
+            currentTime = 0;
+          }
+          
+          result.push({
+            step: originalStep,
+            operation: op.operation,
+            type: op.type,
+            sam: op.sam,
+            operatorNumber: currentOperator,
+            startTime: currentTime,
+            endTime: currentTime + op.sam,
+            styleName: op.styleName,
+            styleIndex: styleIdx
+          });
+          
+          currentTime += op.sam;
+        }
+      }
+      
+      // If using manual assignments, calculate proper start/end times within each operator
+      if (useManualAssignment) {
+        // Group by operator
+        const operatorGroups: {[key: number]: OperationAllocation[]} = {};
+        
+        for (const alloc of result) {
+          if (!operatorGroups[alloc.operatorNumber]) {
+            operatorGroups[alloc.operatorNumber] = [];
+          }
+          operatorGroups[alloc.operatorNumber].push(alloc);
+        }
+        
+        // Calculate sequential timing for each operator's operations
+        for (const opNum in operatorGroups) {
+          let opTime = 0;
+          for (const alloc of operatorGroups[opNum]) {
+            alloc.startTime = opTime;
+            alloc.endTime = opTime + alloc.sam;
+            opTime += alloc.sam;
+          }
+        }
+      }
+      
+      return result;
+    }
+    
+    // Original single style allocation logic
     if (!style || !style.operations) return [];
     
     const operations = [...style.operations].sort((a, b) => a.step - b.step);
@@ -798,6 +920,8 @@ export default function EnhancedLineBalancing3() {
     startTime: number;
     endTime: number;
     isManuallyAssigned?: boolean; // Flag to indicate if this was manually assigned
+    styleName?: string; // The name of the style this operation belongs to (for combined mode)
+    styleIndex?: number; // The index of the style this operation belongs to (for combined mode)
   }
 
   // Calculate workload balance (standard deviation of workload as percentage)
